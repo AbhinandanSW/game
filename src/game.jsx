@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import storage from "./firebase";
 
 // ─── CONSTANTS ───
 const W = 860,
@@ -94,17 +95,6 @@ const SPAWNS = [
   { x: 700, y: 200 },
   { x: 400, y: 80 },
 ];
-
-// ─── STORAGE SHIM (replaces CodeSandbox's window.storage) ───
-const storage = {
-  async get(key) {
-    const val = localStorage.getItem(key);
-    return val ? { value: val } : null;
-  },
-  async set(key, value) {
-    localStorage.setItem(key, value);
-  },
-};
 
 // ─── HELPER ───
 const uid = () => Math.random().toString(36).slice(2, 10);
