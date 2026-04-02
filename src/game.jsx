@@ -6,7 +6,7 @@ const W = 860,
   H = 520;
 const GRAVITY = 0.42;
 const TICK_MS = 1000 / 30;
-const SYNC_MS = 100;
+const SYNC_MS = 150;
 const MAX_HP = 100;
 const MATCH_TIME = 5 * 60 * 30; // 5 minutes in ticks (30fps)
 const WIN_KILLS = 15;
@@ -358,37 +358,33 @@ export default function PixelArena() {
         }
       }
 
+      // Prune old seen IDs to prevent memory growth
+      if (seenShootIds.size > 500) {
+        const arr = [...seenShootIds];
+        seenShootIds = new Set(arr.slice(-100));
+      }
+
       // Pull health kit pickups from firebase if synced
       if (room.healthKits) {
         healthKits = toArray(room.healthKits).filter((k) => k);
       }
     });
 
-    // Sync my player state + my bullets to server
+    // Single batched sync — 1 Firebase write instead of 3
     let syncPending = false;
     async function syncState() {
       if (!localState || !localState[myId] || syncPending) return;
       syncPending = true;
       try {
-        // Sync player data
-        await storage.syncPlayer(`room:${roomCode}`, myId, localState[myId]);
-
-        // Sync shoot events (only keep recent ones, max 10)
+        const me = localState[myId];
         const recentEvents = myShootEvents.slice(-10);
-        await storage.syncBullets(`room:${roomCode}`, myId, recentEvents);
-
-        // Sync scores
-        const scores = {};
-        for (const pid of Object.keys(localState)) {
-          const p = localState[pid];
-          scores[pid] = {
-            kills: p.kills || 0,
-            deaths: p.deaths || 0,
-            score: p.score || 0,
-            slot: p.slot,
-          };
-        }
-        await storage.setScores(`room:${roomCode}`, scores);
+        const scoreData = {
+          kills: me.kills || 0,
+          deaths: me.deaths || 0,
+          score: me.score || 0,
+          slot: me.slot,
+        };
+        await storage.syncAll(`room:${roomCode}`, myId, me, recentEvents, scoreData);
       } catch (e) {
         console.warn("syncState failed:", e);
       }
@@ -427,7 +423,10 @@ export default function PixelArena() {
     }
 
     function spawnParticles(x, y, color, count, speed) {
-      for (let i = 0; i < count; i++) {
+      // Cap total particles to prevent lag
+      const maxParticles = 200;
+      const toSpawn = particles.length > maxParticles ? Math.min(count, 3) : count;
+      for (let i = 0; i < toSpawn; i++) {
         const a = Math.random() * Math.PI * 2;
         const s = Math.random() * speed;
         particles.push({
@@ -436,9 +435,9 @@ export default function PixelArena() {
           vx: Math.cos(a) * s,
           vy: Math.sin(a) * s - 1,
           color,
-          life: 18 + Math.random() * 15,
-          maxLife: 33,
-          size: 2 + Math.random() * 3,
+          life: 15 + Math.random() * 10,
+          maxLife: 25,
+          size: 2 + Math.random() * 2,
         });
       }
     }
@@ -597,6 +596,8 @@ export default function PixelArena() {
           seenShootIds.add(shootId); // mark as seen so we don't double-spawn
           myShootEvents.push({ ...bulletData, id: shootId });
         }
+        // Keep only recent shoot events to prevent memory growth
+        if (myShootEvents.length > 20) myShootEvents = myShootEvents.slice(-10);
         p.shootCd = wep.cooldown;
         spawnParticles(
           p.x + 14 + p.facing * 16,
@@ -624,10 +625,10 @@ export default function PixelArena() {
         if (b.weapon === "rocket") b.vy += 0.08;
         b.life--;
 
-        if (Math.random() < 0.3)
+        if (particles.length < 150 && Math.random() < 0.15)
           particles.push({
             x: b.x, y: b.y, vx: 0, vy: 0,
-            color: b.color, life: 8, maxLife: 8, size: 1.5,
+            color: b.color, life: 6, maxLife: 6, size: 1.5,
           });
 
         // Out of bounds or expired

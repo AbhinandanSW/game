@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, onValue, off } from "firebase/database";
+import { getDatabase, ref, set, get, update, onValue, off } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCN0wn2rwDc2GwNanZJrFQxEzPSvbcXFQs",
@@ -40,29 +40,19 @@ const storage = {
     }
   },
 
-  async syncPlayer(roomKey, playerId, data) {
+  // Single batched write for all game sync data (1 write instead of 3)
+  async syncAll(roomKey, playerId, playerData, shootEvents, scoreData) {
     try {
       const base = `rooms/${safeKey(roomKey)}`;
-      await set(ref(db, `${base}/gameData/players/${playerId}`), data);
+      const updates = {};
+      updates[`${base}/gameData/players/${playerId}`] = playerData;
+      updates[`${base}/shootEvents/${playerId}`] = shootEvents || [];
+      if (scoreData) {
+        updates[`${base}/scores/${playerId}`] = scoreData;
+      }
+      await update(ref(db), updates);
     } catch (e) {
-      console.warn("storage.syncPlayer failed:", e);
-    }
-  },
-
-  async syncBullets(roomKey, playerId, bullets) {
-    try {
-      const base = `rooms/${safeKey(roomKey)}`;
-      await set(ref(db, `${base}/shootEvents/${playerId}`), bullets || []);
-    } catch (e) {
-      console.warn("storage.syncBullets failed:", e);
-    }
-  },
-
-  async setScores(roomKey, scores) {
-    try {
-      await set(ref(db, `rooms/${safeKey(roomKey)}/scores`), scores);
-    } catch (e) {
-      console.warn("storage.setScores failed:", e);
+      console.warn("storage.syncAll failed:", e);
     }
   },
 
