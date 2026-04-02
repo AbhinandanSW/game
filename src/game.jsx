@@ -292,9 +292,10 @@ export default function PixelArena() {
     const ctx = canvas.getContext("2d");
 
     let localState = null; // { [playerId]: playerData }
+    let remoteTargets = {}; // { [playerId]: target position for interpolation }
     let allBullets = []; // ALL bullets (mine + remote) - all simulated locally
-    let seenShootIds = new Set(); // track which remote shoot events we already spawned
-    let myShootEvents = []; // shoot events to sync to Firebase
+    let seenShootIds = new Set();
+    let myShootEvents = [];
     let particles = [];
     let weaponDrops = [];
     let healthKits = [];
@@ -303,88 +304,136 @@ export default function PixelArena() {
     let dropTimer = 300;
     let healthKitTimer = HEALTH_KIT_INTERVAL_MIN;
     let matchTick = 0;
-    let killFeed = []; // { text, color, timer }
-    let lastHitBy = null; // playerId of last player whose bullet hit me
+    let killFeed = [];
+    let lastHitBy = null;
     let showLeaderboard = false;
 
-    // Real-time subscription - pulls other players' state + bullets
-    const unsub = storage.subscribe(`room:${roomCode}`, (room) => {
-      if (!room || !room.gameData || !room.gameData.players) return;
-      const remotePlayers = room.gameData.players;
-
+    // Subscribe to player positions (separate from shoot events)
+    const unsubPlayers = storage.subscribePath(`room:${roomCode}`, "gameData/players", (remotePlayers) => {
+      if (!remotePlayers) return;
       if (!localState) {
-        // First load: clone all players
         localState = {};
         for (const pid of Object.keys(remotePlayers)) {
           localState[pid] = { ...remotePlayers[pid] };
         }
       } else {
-        // Update remote players only (never overwrite our own state)
         for (const pid of Object.keys(remotePlayers)) {
-          if (pid !== myId) {
-            localState[pid] = remotePlayers[pid];
-          }
-        }
-        // Add any new players that joined
-        for (const pid of Object.keys(remotePlayers)) {
-          if (!localState[pid]) {
-            localState[pid] = remotePlayers[pid];
-          }
-        }
-      }
-
-      // Process remote shoot events — spawn local bullets for each new event
-      if (room.shootEvents) {
-        for (const pid of Object.keys(room.shootEvents)) {
           if (pid === myId) continue;
-          const events = toArray(room.shootEvents[pid]);
-          for (const ev of events) {
-            if (!ev || !ev.id) continue;
-            if (seenShootIds.has(ev.id)) continue;
-            seenShootIds.add(ev.id);
-            // Create local bullet from shoot event
-            allBullets.push({
-              x: ev.x, y: ev.y,
-              vx: ev.vx, vy: ev.vy,
-              owner: ev.owner,
-              color: ev.color,
-              damage: ev.damage,
-              life: ev.life,
-              size: ev.size,
-              explode: ev.explode || false,
-              weapon: ev.weapon,
-            });
+          const remote = remotePlayers[pid];
+          if (!localState[pid]) {
+            localState[pid] = { ...remote };
+          } else {
+            // Store target for interpolation — don't snap
+            remoteTargets[pid] = { x: remote.x, y: remote.y };
+            // Update non-position fields immediately
+            localState[pid].hp = remote.hp;
+            localState[pid].weapon = remote.weapon;
+            localState[pid].facing = remote.facing;
+            localState[pid].dead = remote.dead;
+            localState[pid].invincible = remote.invincible;
+            localState[pid].slot = remote.slot;
+            localState[pid].kills = remote.kills;
+            localState[pid].deaths = remote.deaths;
+            localState[pid].score = remote.score;
+            localState[pid].respawnTimer = remote.respawnTimer;
           }
         }
-      }
-
-      // Prune old seen IDs to prevent memory growth
-      if (seenShootIds.size > 500) {
-        const arr = [...seenShootIds];
-        seenShootIds = new Set(arr.slice(-100));
-      }
-
-      // Pull health kit pickups from firebase if synced
-      if (room.healthKits) {
-        healthKits = toArray(room.healthKits).filter((k) => k);
       }
     });
 
-    // Single batched sync — 1 Firebase write instead of 3
+    // Subscribe to shoot events separately
+    const unsubShots = storage.subscribePath(`room:${roomCode}`, "shootEvents", (allShootEvents) => {
+      if (!allShootEvents) return;
+      for (const pid of Object.keys(allShootEvents)) {
+        if (pid === myId) continue;
+        const events = toArray(allShootEvents[pid]);
+        for (const ev of events) {
+          if (!ev || !ev.id) continue;
+          if (seenShootIds.has(ev.id)) continue;
+          seenShootIds.add(ev.id);
+          allBullets.push({
+            x: ev.x, y: ev.y,
+            vx: ev.vx, vy: ev.vy,
+            owner: ev.owner,
+            color: ev.color,
+            damage: ev.damage,
+            life: ev.life,
+            size: ev.size,
+            explode: ev.explode || false,
+            weapon: ev.weapon,
+          });
+        }
+      }
+      // Prune old seen IDs
+      if (seenShootIds.size > 300) {
+        const arr = [...seenShootIds];
+        seenShootIds = new Set(arr.slice(-80));
+      }
+    });
+
+    // Subscribe to scores separately (lightweight, changes rarely)
+    const unsubScores = storage.subscribePath(`room:${roomCode}`, "scores", (scores) => {
+      if (!scores || !localState) return;
+      for (const pid of Object.keys(scores)) {
+        if (pid === myId || !localState[pid]) continue;
+        const s = scores[pid];
+        if (s) {
+          localState[pid].kills = s.kills || 0;
+          localState[pid].deaths = s.deaths || 0;
+          localState[pid].score = s.score || 0;
+        }
+      }
+    });
+
+    // Interpolate remote players toward their target positions (called each tick)
+    function interpolateRemotePlayers() {
+      const LERP = 0.3; // smoothing factor — higher = snappier, lower = smoother
+      for (const pid of Object.keys(remoteTargets)) {
+        if (pid === myId || !localState[pid]) continue;
+        const t = remoteTargets[pid];
+        const p = localState[pid];
+        p.x += (t.x - p.x) * LERP;
+        p.y += (t.y - p.y) * LERP;
+      }
+    }
+
+    // Batched sync — minimal payload
     let syncPending = false;
+    let lastSyncedShootCount = 0;
     async function syncState() {
       if (!localState || !localState[myId] || syncPending) return;
       syncPending = true;
       try {
         const me = localState[myId];
-        const recentEvents = myShootEvents.slice(-10);
+        // Only send essential fields
+        const playerSync = {
+          x: Math.round(me.x * 10) / 10,
+          y: Math.round(me.y * 10) / 10,
+          vx: Math.round(me.vx * 10) / 10,
+          vy: Math.round(me.vy * 10) / 10,
+          hp: me.hp,
+          weapon: me.weapon,
+          facing: me.facing,
+          slot: me.slot,
+          dead: me.dead || false,
+          invincible: me.invincible || 0,
+          kills: me.kills || 0,
+          deaths: me.deaths || 0,
+          score: me.score || 0,
+          respawnTimer: me.respawnTimer || 0,
+        };
+        // Only send shoot events if there are new ones
+        const newShots = myShootEvents.length > lastSyncedShootCount;
+        const shootEvents = newShots ? myShootEvents.slice(-8) : null;
+        if (newShots) lastSyncedShootCount = myShootEvents.length;
+
         const scoreData = {
           kills: me.kills || 0,
           deaths: me.deaths || 0,
           score: me.score || 0,
           slot: me.slot,
         };
-        await storage.syncAll(`room:${roomCode}`, myId, me, recentEvents, scoreData);
+        await storage.syncAll(`room:${roomCode}`, myId, playerSync, shootEvents, scoreData);
       } catch (e) {
         console.warn("syncState failed:", e);
       }
@@ -1219,6 +1268,7 @@ export default function PixelArena() {
       if (localState && localState[myId]) {
         updatePlayer(localState[myId]);
       }
+      interpolateRemotePlayers();
       updateAllBullets();
       updateWeaponDrops();
       updateHealthKits();
@@ -1258,7 +1308,9 @@ export default function PixelArena() {
     return () => {
       running = false;
       clearInterval(syncInterval);
-      unsub();
+      unsubPlayers();
+      unsubShots();
+      unsubScores();
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };

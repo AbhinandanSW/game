@@ -40,13 +40,15 @@ const storage = {
     }
   },
 
-  // Single batched write for all game sync data (1 write instead of 3)
+  // Single batched write — only sync minimal player data
   async syncAll(roomKey, playerId, playerData, shootEvents, scoreData) {
     try {
       const base = `rooms/${safeKey(roomKey)}`;
       const updates = {};
       updates[`${base}/gameData/players/${playerId}`] = playerData;
-      updates[`${base}/shootEvents/${playerId}`] = shootEvents || [];
+      if (shootEvents && shootEvents.length > 0) {
+        updates[`${base}/shootEvents/${playerId}`] = shootEvents;
+      }
       if (scoreData) {
         updates[`${base}/scores/${playerId}`] = scoreData;
       }
@@ -56,6 +58,18 @@ const storage = {
     }
   },
 
+  // Subscribe to specific sub-paths for less data transfer
+  subscribePath(key, subPath, callback) {
+    const dbRef = ref(db, `rooms/${safeKey(key)}/${subPath}`);
+    onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.val());
+      }
+    });
+    return () => off(dbRef);
+  },
+
+  // Full room subscribe (for lobby only)
   subscribe(key, callback) {
     const dbRef = ref(db, `rooms/${safeKey(key)}`);
     onValue(dbRef, (snapshot) => {
