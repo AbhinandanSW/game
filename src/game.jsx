@@ -95,6 +95,17 @@ const SPAWNS = [
   { x: 400, y: 80 },
 ];
 
+// ─── STORAGE SHIM (replaces CodeSandbox's window.storage) ───
+const storage = {
+  async get(key) {
+    const val = localStorage.getItem(key);
+    return val ? { value: val } : null;
+  },
+  async set(key, value) {
+    localStorage.setItem(key, value);
+  },
+};
+
 // ─── HELPER ───
 const uid = () => Math.random().toString(36).slice(2, 10);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -128,7 +139,7 @@ export default function PixelArena() {
       scores: [0, 0, 0],
     };
     try {
-      await window.storage.set(`room:${code}`, JSON.stringify(roomData), true);
+      await storage.set(`room:${code}`, JSON.stringify(roomData));
       setScreen("lobby");
       setError("");
     } catch (e) {
@@ -140,7 +151,7 @@ export default function PixelArena() {
     const code = roomInput.toUpperCase().trim();
     if (!code) return;
     try {
-      const res = await window.storage.get(`room:${code}`, true);
+      const res = await storage.get(`room:${code}`);
       if (!res) {
         setError("Room not found!");
         return;
@@ -159,7 +170,7 @@ export default function PixelArena() {
         weapon: "pistol",
         ready: false,
       });
-      await window.storage.set(`room:${code}`, JSON.stringify(room), true);
+      await storage.set(`room:${code}`, JSON.stringify(room));
       setMyId(id);
       setRoomCode(code);
       setPlayerSlot(slot);
@@ -175,7 +186,7 @@ export default function PixelArena() {
     if (screen !== "lobby" && screen !== "weapon") return;
     const interval = setInterval(async () => {
       try {
-        const res = await window.storage.get(`room:${roomCode}`, true);
+        const res = await storage.get(`room:${roomCode}`);
         if (!res) return;
         const room = JSON.parse(res.value);
         setLobbyPlayers(room.players);
@@ -192,7 +203,7 @@ export default function PixelArena() {
     async (weapon) => {
       setMyWeapon(weapon);
       try {
-        const res = await window.storage.get(`room:${roomCode}`, true);
+        const res = await storage.get(`room:${roomCode}`);
         if (!res) return;
         const room = JSON.parse(res.value);
         const me = room.players.find((p) => p.id === myId);
@@ -207,11 +218,7 @@ export default function PixelArena() {
           room.state = "playing";
           room.gameData = createInitialGameData(room.players);
         }
-        await window.storage.set(
-          `room:${roomCode}`,
-          JSON.stringify(room),
-          true
-        );
+        await storage.set(`room:${roomCode}`, JSON.stringify(room));
         setScreen("weapon");
       } catch {}
     },
@@ -267,7 +274,7 @@ export default function PixelArena() {
     // Fetch initial state
     async function fetchState() {
       try {
-        const res = await window.storage.get(`room:${roomCode}`, true);
+        const res = await storage.get(`room:${roomCode}`);
         if (!res) return;
         const room = JSON.parse(res.value);
         if (room.gameData) {
@@ -284,18 +291,14 @@ export default function PixelArena() {
     async function syncState() {
       if (!localState || !localState[myId]) return;
       try {
-        const res = await window.storage.get(`room:${roomCode}`, true);
+        const res = await storage.get(`room:${roomCode}`);
         if (!res) return;
         const room = JSON.parse(res.value);
         if (!room.gameData) return;
         // Update my player in shared state
         room.gameData.players[myId] = localState[myId];
         room.scores = scores;
-        await window.storage.set(
-          `room:${roomCode}`,
-          JSON.stringify(room),
-          true
-        );
+        await storage.set(`room:${roomCode}`, JSON.stringify(room));
 
         // Pull other players
         for (const pid of Object.keys(room.gameData.players)) {
