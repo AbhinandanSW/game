@@ -10,6 +10,7 @@ import { getDatabase, ref, set, get } from "firebase/database";
 const firebaseConfig = {
   apiKey: "AIzaSyCN0wn2rwDc2GwNanZJrFQxEzPSvbcXFQs",
   authDomain: "testgame9328479.firebaseapp.com",
+  databaseURL: "https://testgame9328479-default-rtdb.firebaseio.com",
   projectId: "testgame9328479",
   storageBucket: "testgame9328479.firebasestorage.app",
   messagingSenderId: "250228830610",
