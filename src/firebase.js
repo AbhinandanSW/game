@@ -20,28 +20,52 @@ function safeKey(key) {
 
 const storage = {
   async get(key) {
-    const snapshot = await get(ref(db, `rooms/${safeKey(key)}`));
-    if (snapshot.exists()) {
-      return { value: snapshot.val() };
+    try {
+      const snapshot = await get(ref(db, `rooms/${safeKey(key)}`));
+      if (snapshot.exists()) {
+        return { value: snapshot.val() };
+      }
+      return null;
+    } catch (e) {
+      console.warn("storage.get failed:", e);
+      return null;
     }
-    return null;
   },
+
   async set(key, value) {
-    await set(ref(db, `rooms/${safeKey(key)}`), value);
+    try {
+      await set(ref(db, `rooms/${safeKey(key)}`), value);
+    } catch (e) {
+      console.warn("storage.set failed:", e);
+    }
   },
-  // Write a player's game data + their bullets in one call
-  async syncPlayer(roomKey, playerId, playerData, playerBullets) {
-    const base = `rooms/${safeKey(roomKey)}`;
-    await Promise.all([
-      set(ref(db, `${base}/gameData/players/${playerId}`), playerData),
-      set(ref(db, `${base}/bullets/${playerId}`), playerBullets || []),
-    ]);
+
+  async syncPlayer(roomKey, playerId, data) {
+    try {
+      const base = `rooms/${safeKey(roomKey)}`;
+      await set(ref(db, `${base}/gameData/players/${playerId}`), data);
+    } catch (e) {
+      console.warn("storage.syncPlayer failed:", e);
+    }
   },
-  // Write scores
+
+  async syncBullets(roomKey, playerId, bullets) {
+    try {
+      const base = `rooms/${safeKey(roomKey)}`;
+      await set(ref(db, `${base}/shootEvents/${playerId}`), bullets || []);
+    } catch (e) {
+      console.warn("storage.syncBullets failed:", e);
+    }
+  },
+
   async setScores(roomKey, scores) {
-    await set(ref(db, `rooms/${safeKey(roomKey)}/scores`), scores);
+    try {
+      await set(ref(db, `rooms/${safeKey(roomKey)}/scores`), scores);
+    } catch (e) {
+      console.warn("storage.setScores failed:", e);
+    }
   },
-  // Subscribe to real-time updates
+
   subscribe(key, callback) {
     const dbRef = ref(db, `rooms/${safeKey(key)}`);
     onValue(dbRef, (snapshot) => {

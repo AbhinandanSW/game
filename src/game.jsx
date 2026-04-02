@@ -8,7 +8,15 @@ const GRAVITY = 0.42;
 const TICK_MS = 1000 / 30;
 const SYNC_MS = 100;
 const MAX_HP = 100;
-const WIN_SCORE = 5;
+const MATCH_TIME = 5 * 60 * 30; // 5 minutes in ticks (30fps)
+const WIN_KILLS = 15;
+const MAX_PLAYERS = 8;
+const HEALTH_KIT_HP = 30;
+const HEALTH_KIT_INTERVAL_MIN = 450; // ~15s at 30fps
+const HEALTH_KIT_INTERVAL_MAX = 600; // ~20s at 30fps
+const RESPAWN_TICKS = 90; // 3 seconds at 30fps
+const INVINCIBLE_ON_SPAWN = 60; // 2 seconds at 30fps
+const KILL_FEED_DURATION = 120; // 4 seconds
 
 const WEAPONS = {
   pistol: {
@@ -75,6 +83,11 @@ const PLAYER_COLORS = [
   { main: "#ff4d6a", glow: "#ff4d6a88", name: "Crimson" },
   { main: "#4de1ff", glow: "#4de1ff88", name: "Cyan" },
   { main: "#a855f7", glow: "#a855f788", name: "Violet" },
+  { main: "#ffd700", glow: "#ffd70088", name: "Gold" },
+  { main: "#44ff88", glow: "#44ff8888", name: "Emerald" },
+  { main: "#ff8844", glow: "#ff884488", name: "Amber" },
+  { main: "#ff44cc", glow: "#ff44cc88", name: "Magenta" },
+  { main: "#44ccff", glow: "#44ccff88", name: "Sky" },
 ];
 
 const PLATFORMS = [
@@ -94,12 +107,35 @@ const SPAWNS = [
   { x: 80, y: 200 },
   { x: 700, y: 200 },
   { x: 400, y: 80 },
+  { x: 200, y: 340 },
+  { x: 600, y: 340 },
+  { x: 120, y: 120 },
+  { x: 650, y: 120 },
+  { x: 380, y: 210 },
 ];
 
-// ─── HELPER ───
+// ─── HELPERS ───
 const uid = () => Math.random().toString(36).slice(2, 10);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+// Firebase may return arrays as objects with numeric keys — normalize
+const toArray = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  return Object.values(val);
+};
+
+function randomSpawn() {
+  const sp = SPAWNS[Math.floor(Math.random() * SPAWNS.length)];
+  return { x: sp.x, y: sp.y };
+}
+
+function formatTime(ticks) {
+  const totalSec = Math.max(0, Math.ceil(ticks / 30));
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, "0")}`;
+}
 
 // ─── MAIN COMPONENT ───
 export default function PixelArena() {
@@ -113,7 +149,6 @@ export default function PixelArena() {
   const [resultMsg, setResultMsg] = useState("");
   const [error, setError] = useState("");
   const canvasRef = useRef(null);
-  const gameRef = useRef(null);
   const keysRef = useRef({});
 
   // ─── ROOM CREATION / JOIN ───
@@ -124,15 +159,16 @@ export default function PixelArena() {
     setRoomCode(code);
     setPlayerSlot(0);
     const roomData = {
-      players: [{ id, name: "P1", slot: 0, weapon: "pistol", ready: false }],
+      players: { [id]: { id, name: "P1", slot: 0, weapon: "pistol", ready: false } },
       state: "lobby",
-      scores: [0, 0, 0],
+      scores: {},
     };
     try {
       await storage.set(`room:${code}`, roomData);
       setScreen("lobby");
       setError("");
     } catch (e) {
+      console.warn("Failed to create room:", e);
       setError("Failed to create room. Try again.");
     }
   }, []);
@@ -147,21 +183,22 @@ export default function PixelArena() {
         return;
       }
       const room = res.value;
-      const players = room.players || [];
-      if (players.length >= 3) {
+      const playersObj = room.players || {};
+      const playersArr = toArray(playersObj);
+      if (playersArr.length >= MAX_PLAYERS) {
         setError("Room is full!");
         return;
       }
       const id = uid();
-      const slot = players.length;
-      players.push({
+      const slot = playersArr.length;
+      playersObj[id] = {
         id,
         name: `P${slot + 1}`,
         slot,
         weapon: "pistol",
         ready: false,
-      });
-      room.players = players;
+      };
+      room.players = playersObj;
       await storage.set(`room:${code}`, room);
       setMyId(id);
       setRoomCode(code);
@@ -169,6 +206,7 @@ export default function PixelArena() {
       setScreen("lobby");
       setError("");
     } catch (e) {
+      console.warn("Failed to join room:", e);
       setError("Failed to join room.");
     }
   }, [roomInput]);
@@ -177,8 +215,8 @@ export default function PixelArena() {
   useEffect(() => {
     if (screen !== "lobby" && screen !== "weapon") return;
     const unsub = storage.subscribe(`room:${roomCode}`, (room) => {
-      const players = room.players || [];
-      setLobbyPlayers(players);
+      const playersArr = toArray(room.players);
+      setLobbyPlayers(playersArr);
       if (room.state === "playing" && screen === "weapon") {
         setScreen("game");
       }
@@ -194,50 +232,53 @@ export default function PixelArena() {
         const res = await storage.get(`room:${roomCode}`);
         if (!res) return;
         const room = res.value;
-        const players = room.players || [];
-        const me = players.find((p) => p.id === myId);
-        if (me) {
-          me.weapon = weapon;
-          me.ready = true;
+        const playersObj = room.players || {};
+        if (playersObj[myId]) {
+          playersObj[myId].weapon = weapon;
+          playersObj[myId].ready = true;
         }
-        room.players = players;
+        room.players = playersObj;
         // If all ready (at least 2 players), start game
+        const playersArr = toArray(playersObj);
         const allReady =
-          players.length >= 2 && players.every((p) => p.ready);
+          playersArr.length >= 2 && playersArr.every((p) => p.ready);
         if (allReady) {
           room.state = "playing";
-          room.gameData = createInitialGameData(players);
+          room.gameData = createInitialGameData(playersArr);
+          room.matchStartTick = 0;
         }
         await storage.set(`room:${roomCode}`, room);
         setScreen("weapon");
-      } catch {}
+      } catch (e) {
+        console.warn("selectWeaponAndReady failed:", e);
+      }
     },
     [roomCode, myId]
   );
 
-  function createInitialGameData(players) {
-    const gd = {
-      players: {},
-      bullets: [],
-      particles: [],
-      weaponDrops: [],
-      tick: 0,
-    };
-    players.forEach((p, i) => {
+  function createInitialGameData(playersArr) {
+    const gd = { players: {} };
+    playersArr.forEach((p, i) => {
+      const sp = i < SPAWNS.length ? SPAWNS[i] : randomSpawn();
       gd.players[p.id] = {
-        x: SPAWNS[i].x,
-        y: SPAWNS[i].y,
+        x: sp.x,
+        y: sp.y,
         vx: 0,
         vy: 0,
         hp: MAX_HP,
         slot: i,
         weapon: p.weapon,
-        facing: i === 0 ? 1 : -1,
+        facing: i % 2 === 0 ? 1 : -1,
         shootCd: 0,
         dashCd: 0,
         dashTimer: 0,
-        invincible: 90,
+        invincible: INVINCIBLE_ON_SPAWN,
         grounded: false,
+        dead: false,
+        respawnTimer: 0,
+        kills: 0,
+        deaths: 0,
+        score: 0,
       };
     });
     return gd;
@@ -250,33 +291,41 @@ export default function PixelArena() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
 
-    let localState = null;
-    let myBullets = []; // bullets I fired — synced to Firebase
-    let remoteBullets = []; // bullets from other players — from Firebase
+    let localState = null; // { [playerId]: playerData }
+    let allBullets = []; // ALL bullets (mine + remote) - all simulated locally
+    let seenShootIds = new Set(); // track which remote shoot events we already spawned
+    let myShootEvents = []; // shoot events to sync to Firebase
     let particles = [];
     let weaponDrops = [];
-    let scores = [0, 0, 0];
+    let healthKits = [];
     let shake = { t: 0, i: 0 };
-    let roundMsg = { text: "", timer: 0 };
     let running = true;
     let dropTimer = 300;
-    let numPlayers = 2;
+    let healthKitTimer = HEALTH_KIT_INTERVAL_MIN;
+    let matchTick = 0;
+    let killFeed = []; // { text, color, timer }
+    let lastHitBy = null; // playerId of last player whose bullet hit me
+    let showLeaderboard = false;
 
-    // Real-time subscription — pulls other players' state + bullets
+    // Real-time subscription - pulls other players' state + bullets
     const unsub = storage.subscribe(`room:${roomCode}`, (room) => {
       if (!room || !room.gameData || !room.gameData.players) return;
       const remotePlayers = room.gameData.players;
-      numPlayers = room.players ? room.players.length : 2;
-      scores = room.scores || scores;
 
       if (!localState) {
-        localState = { ...remotePlayers };
+        // First load: clone all players
+        localState = {};
+        for (const pid of Object.keys(remotePlayers)) {
+          localState[pid] = { ...remotePlayers[pid] };
+        }
       } else {
+        // Update remote players only (never overwrite our own state)
         for (const pid of Object.keys(remotePlayers)) {
           if (pid !== myId) {
             localState[pid] = remotePlayers[pid];
           }
         }
+        // Add any new players that joined
         for (const pid of Object.keys(remotePlayers)) {
           if (!localState[pid]) {
             localState[pid] = remotePlayers[pid];
@@ -284,34 +333,66 @@ export default function PixelArena() {
         }
       }
 
-      // Pull remote bullets (from all other players)
-      const allRemoteBullets = [];
-      if (room.bullets) {
-        for (const pid of Object.keys(room.bullets)) {
-          if (pid !== myId && Array.isArray(room.bullets[pid])) {
-            for (const b of room.bullets[pid]) {
-              allRemoteBullets.push({ ...b, _remote: true });
-            }
+      // Process remote shoot events — spawn local bullets for each new event
+      if (room.shootEvents) {
+        for (const pid of Object.keys(room.shootEvents)) {
+          if (pid === myId) continue;
+          const events = toArray(room.shootEvents[pid]);
+          for (const ev of events) {
+            if (!ev || !ev.id) continue;
+            if (seenShootIds.has(ev.id)) continue;
+            seenShootIds.add(ev.id);
+            // Create local bullet from shoot event
+            allBullets.push({
+              x: ev.x, y: ev.y,
+              vx: ev.vx, vy: ev.vy,
+              owner: ev.owner,
+              color: ev.color,
+              damage: ev.damage,
+              life: ev.life,
+              size: ev.size,
+              explode: ev.explode || false,
+              weapon: ev.weapon,
+            });
           }
         }
       }
-      remoteBullets = allRemoteBullets;
+
+      // Pull health kit pickups from firebase if synced
+      if (room.healthKits) {
+        healthKits = toArray(room.healthKits).filter((k) => k);
+      }
     });
 
     // Sync my player state + my bullets to server
+    let syncPending = false;
     async function syncState() {
-      if (!localState || !localState[myId]) return;
+      if (!localState || !localState[myId] || syncPending) return;
+      syncPending = true;
       try {
-        // Only sync bullets that are still alive (limit to keep payload small)
-        const bulletsToSync = myBullets.map((b) => ({
-          x: b.x, y: b.y, vx: b.vx, vy: b.vy,
-          owner: b.owner, color: b.color, damage: b.damage,
-          life: b.life, size: b.size, explode: b.explode || false,
-          weapon: b.weapon,
-        }));
-        await storage.syncPlayer(`room:${roomCode}`, myId, localState[myId], bulletsToSync);
+        // Sync player data
+        await storage.syncPlayer(`room:${roomCode}`, myId, localState[myId]);
+
+        // Sync shoot events (only keep recent ones, max 10)
+        const recentEvents = myShootEvents.slice(-10);
+        await storage.syncBullets(`room:${roomCode}`, myId, recentEvents);
+
+        // Sync scores
+        const scores = {};
+        for (const pid of Object.keys(localState)) {
+          const p = localState[pid];
+          scores[pid] = {
+            kills: p.kills || 0,
+            deaths: p.deaths || 0,
+            score: p.score || 0,
+            slot: p.slot,
+          };
+        }
         await storage.setScores(`room:${roomCode}`, scores);
-      } catch {}
+      } catch (e) {
+        console.warn("syncState failed:", e);
+      }
+      syncPending = false;
     }
 
     const syncInterval = setInterval(syncState, SYNC_MS);
@@ -319,13 +400,31 @@ export default function PixelArena() {
     // Keys
     const onKeyDown = (e) => {
       keysRef.current[e.key.toLowerCase()] = true;
-      e.preventDefault();
+      if (e.key === "Tab") {
+        e.preventDefault();
+        showLeaderboard = true;
+      }
+      // Prevent default for game keys
+      if (
+        ["w", "a", "s", "d", " ", "shift", "e", "f", "j", "enter", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(
+          e.key.toLowerCase()
+        )
+      ) {
+        e.preventDefault();
+      }
     };
     const onKeyUp = (e) => {
       keysRef.current[e.key.toLowerCase()] = false;
+      if (e.key === "Tab") {
+        showLeaderboard = false;
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+
+    function addKillFeed(text, color) {
+      killFeed.push({ text, color, timer: KILL_FEED_DURATION });
+    }
 
     function spawnParticles(x, y, color, count, speed) {
       for (let i = 0; i < count; i++) {
@@ -344,7 +443,68 @@ export default function PixelArena() {
       }
     }
 
+    function getPlayerName(pid) {
+      if (!localState || !localState[pid]) return "???";
+      const p = localState[pid];
+      const c = PLAYER_COLORS[p.slot] || PLAYER_COLORS[0];
+      return pid === myId ? "YOU" : c.name;
+    }
+
+    function getPlayerColor(pid) {
+      if (!localState || !localState[pid]) return "#fff";
+      return (PLAYER_COLORS[localState[pid].slot] || PLAYER_COLORS[0]).main;
+    }
+
+    function handleDeath(me) {
+      me.dead = true;
+      me.hp = 0;
+      me.respawnTimer = RESPAWN_TICKS;
+      me.deaths = (me.deaths || 0) + 1;
+      spawnParticles(me.x + 14, me.y + 17, PLAYER_COLORS[me.slot].main, 20, 5);
+      spawnParticles(me.x + 14, me.y + 17, "#fff", 10, 3);
+
+      // Credit the kill to lastHitBy
+      if (lastHitBy && localState[lastHitBy]) {
+        const killer = localState[lastHitBy];
+        killer.kills = (killer.kills || 0) + 1;
+        killer.score = (killer.score || 0) + 100;
+        addKillFeed(
+          `${getPlayerName(lastHitBy)} eliminated ${getPlayerName(myId)}`,
+          getPlayerColor(lastHitBy)
+        );
+      } else {
+        addKillFeed(`${getPlayerName(myId)} was eliminated`, "#888");
+      }
+      lastHitBy = null;
+    }
+
+    function handleRespawn(me) {
+      const sp = randomSpawn();
+      me.x = sp.x;
+      me.y = sp.y;
+      me.vx = 0;
+      me.vy = 0;
+      me.hp = MAX_HP;
+      me.dead = false;
+      me.respawnTimer = 0;
+      me.invincible = INVINCIBLE_ON_SPAWN;
+      me.shootCd = 0;
+      me.dashCd = 0;
+      me.dashTimer = 0;
+    }
+
     function updatePlayer(p) {
+      // Handle respawn timer
+      if (p.dead) {
+        if (p.respawnTimer > 0) {
+          p.respawnTimer--;
+        }
+        if (p.respawnTimer <= 0) {
+          handleRespawn(p);
+        }
+        return;
+      }
+
       const keys = keysRef.current;
       const spd = 3.2;
       const jump = -9.5;
@@ -415,8 +575,9 @@ export default function PixelArena() {
         const wep = WEAPONS[p.weapon] || WEAPONS.pistol;
         for (let b = 0; b < wep.burst; b++) {
           const angle =
-            (p.facing === 1 ? 0 : Math.PI) + (Math.random() - 0.5) * wep.spread;
-          bullets.push({
+            (p.facing === 1 ? 0 : Math.PI) +
+            (Math.random() - 0.5) * wep.spread;
+          const bulletData = {
             x: p.x + 14 + p.facing * 16,
             y: p.y + 16,
             vx: Math.cos(angle) * wep.speed,
@@ -428,10 +589,22 @@ export default function PixelArena() {
             size: wep.size,
             explode: wep.explode || false,
             weapon: p.weapon,
-          });
+          };
+          // Add to local simulation
+          allBullets.push({ ...bulletData });
+          // Add shoot event for Firebase sync (with unique id)
+          const shootId = myId + "_" + Date.now() + "_" + b + "_" + Math.random().toString(36).slice(2, 6);
+          seenShootIds.add(shootId); // mark as seen so we don't double-spawn
+          myShootEvents.push({ ...bulletData, id: shootId });
         }
         p.shootCd = wep.cooldown;
-        spawnParticles(p.x + 14 + p.facing * 16, p.y + 16, wep.color, 3, 2);
+        spawnParticles(
+          p.x + 14 + p.facing * 16,
+          p.y + 16,
+          wep.color,
+          3,
+          2
+        );
       }
 
       if (p.shootCd > 0) p.shootCd--;
@@ -439,9 +612,13 @@ export default function PixelArena() {
       if (p.invincible > 0) p.invincible--;
     }
 
-    function updateBullets() {
-      for (let i = bullets.length - 1; i >= 0; i--) {
-        const b = bullets[i];
+    // Process ALL bullets — full physics, hit detection for all players
+    function updateAllBullets() {
+      if (!localState) return;
+      const me = localState[myId];
+
+      for (let i = allBullets.length - 1; i >= 0; i--) {
+        const b = allBullets[i];
         b.x += b.vx;
         b.y += b.vy;
         if (b.weapon === "rocket") b.vy += 0.08;
@@ -449,95 +626,90 @@ export default function PixelArena() {
 
         if (Math.random() < 0.3)
           particles.push({
-            x: b.x,
-            y: b.y,
-            vx: 0,
-            vy: 0,
-            color: b.color,
-            life: 8,
-            maxLife: 8,
-            size: 1.5,
+            x: b.x, y: b.y, vx: 0, vy: 0,
+            color: b.color, life: 8, maxLife: 8, size: 1.5,
           });
 
-        if (
-          b.x < -20 ||
-          b.x > W + 20 ||
-          b.y < -20 ||
-          b.y > H + 20 ||
-          b.life <= 0
-        ) {
+        // Out of bounds or expired
+        if (b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20 || b.life <= 0) {
           if (b.explode) {
             spawnParticles(b.x, b.y, "#ff6600", 20, 5);
             spawnParticles(b.x, b.y, "#ffaa00", 15, 4);
           }
-          bullets.splice(i, 1);
+          allBullets.splice(i, 1);
           continue;
         }
 
+        // Platform collision
         let hitPlat = false;
         for (const plat of PLATFORMS) {
-          if (
-            b.x > plat.x &&
-            b.x < plat.x + plat.w &&
-            b.y > plat.y &&
-            b.y < plat.y + plat.h
-          ) {
+          if (b.x > plat.x && b.x < plat.x + plat.w && b.y > plat.y && b.y < plat.y + plat.h) {
             hitPlat = true;
             break;
           }
         }
         if (hitPlat) {
-          if (b.explode) {
-            spawnParticles(b.x, b.y, "#ff6600", 25, 6);
-            // Explosion damage radius
-            for (const pid of Object.keys(localState)) {
-              const t = localState[pid];
-              if (
-                dist({ x: b.x, y: b.y }, { x: t.x + 14, y: t.y + 17 }) < 55 &&
-                t.invincible <= 0
-              ) {
-                t.hp -= b.damage * 0.6;
-                t.vy -= 4;
-                t.invincible = 10;
-              }
+          // Explosion splash damage on ME from platform hit
+          if (b.explode && b.owner !== myId && me && !me.dead && me.hp > 0 && me.invincible <= 0) {
+            const d = dist({ x: b.x, y: b.y }, { x: me.x + 14, y: me.y + 17 });
+            if (d < 55) {
+              me.hp -= (b.damage || 10) * 0.6;
+              me.vy -= 4;
+              me.invincible = 10;
+              lastHitBy = b.owner || null;
+              if (me.hp <= 0) handleDeath(me);
             }
           }
+          if (b.explode) spawnParticles(b.x, b.y, "#ff6600", 25, 6);
           spawnParticles(b.x, b.y, b.color, 5, 2);
-          bullets.splice(i, 1);
+          allBullets.splice(i, 1);
           continue;
         }
 
-        // Hit players
+        // Hit detection against all players
+        let bulletRemoved = false;
         for (const pid of Object.keys(localState)) {
-          if (pid === b.owner) continue;
+          if (pid === b.owner) continue; // can't hit yourself
           const t = localState[pid];
-          if (t.invincible > 0 || t.hp <= 0) continue;
+          if (t.dead || t.hp <= 0) continue;
           if (b.x > t.x && b.x < t.x + 28 && b.y > t.y && b.y < t.y + 34) {
-            let dmg = b.damage;
-            if (b.explode) {
-              spawnParticles(b.x, b.y, "#ff6600", 20, 5);
-              // Splash
-              for (const pid2 of Object.keys(localState)) {
-                if (pid2 === b.owner) continue;
-                const t2 = localState[pid2];
-                if (
-                  pid2 !== pid &&
-                  dist({ x: b.x, y: b.y }, { x: t2.x + 14, y: t2.y + 17 }) < 50
-                ) {
-                  t2.hp -= dmg * 0.5;
-                  t2.vy -= 3;
-                  t2.invincible = 10;
-                }
+            // Visual effects for all hits
+            if (b.explode) spawnParticles(b.x, b.y, "#ff6600", 20, 5);
+            spawnParticles(b.x, b.y, "#fff", 8, 4);
+            const tc = PLAYER_COLORS[t.slot] || PLAYER_COLORS[0];
+            spawnParticles(b.x, b.y, tc.main, 6, 3);
+            shake = { t: 6, i: b.explode ? 8 : 4 };
+
+            // Only apply damage if the hit player is ME
+            if (pid === myId && me.invincible <= 0) {
+              const dmg = b.damage || 10;
+              me.hp -= dmg;
+              me.vx += (b.vx || 0) * 0.4;
+              me.vy -= 3.5;
+              me.invincible = 12;
+              lastHitBy = b.owner || null;
+              if (me.hp <= 0) handleDeath(me);
+            }
+
+            // Award hit score if MY bullet hit someone
+            if (b.owner === myId && me) {
+              me.score = (me.score || 0) + 10;
+            }
+
+            // Explosion splash on ME from direct hit
+            if (b.explode && pid !== myId && me && !me.dead && me.hp > 0 && me.invincible <= 0) {
+              const d = dist({ x: b.x, y: b.y }, { x: me.x + 14, y: me.y + 17 });
+              if (d < 55) {
+                me.hp -= (b.damage || 10) * 0.6;
+                me.vy -= 4;
+                me.invincible = 10;
+                lastHitBy = b.owner || null;
+                if (me.hp <= 0) handleDeath(me);
               }
             }
-            t.hp -= dmg;
-            t.vx += b.vx * 0.4;
-            t.vy -= 3.5;
-            t.invincible = 12;
-            spawnParticles(b.x, b.y, "#fff", 8, 4);
-            spawnParticles(b.x, b.y, PLAYER_COLORS[t.slot].main, 6, 3);
-            shake = { t: 6, i: b.explode ? 8 : 4 };
-            bullets.splice(i, 1);
+
+            allBullets.splice(i, 1);
+            bulletRemoved = true;
             break;
           }
         }
@@ -569,9 +741,11 @@ export default function PixelArena() {
           continue;
         }
         // Pickup by local player
-        if (localState[myId] && localState[myId].hp > 0) {
+        if (localState && localState[myId] && !localState[myId].dead && localState[myId].hp > 0) {
           const p = localState[myId];
-          if (dist({ x: wd.x, y: wd.y }, { x: p.x + 14, y: p.y + 17 }) < 28) {
+          if (
+            dist({ x: wd.x, y: wd.y }, { x: p.x + 14, y: p.y + 17 }) < 28
+          ) {
             p.weapon = wd.weapon;
             spawnParticles(wd.x, wd.y, WEAPONS[wd.weapon].color, 10, 3);
             weaponDrops.splice(i, 1);
@@ -580,47 +754,85 @@ export default function PixelArena() {
       }
     }
 
-    function checkRoundEnd() {
-      if (!localState) return;
-      const alive = Object.entries(localState).filter(([_, p]) => p.hp > 0);
-      const allPlayers = Object.keys(localState);
-      if (allPlayers.length < 2) return;
-      if (alive.length <= 1) {
-        if (alive.length === 1) {
-          const winnerSlot = alive[0][1].slot;
-          scores[winnerSlot]++;
-          roundMsg = {
-            text: `${PLAYER_COLORS[winnerSlot].name} scores!`,
-            timer: 80,
-          };
-        } else {
-          roundMsg = { text: "Draw!", timer: 80 };
+    function updateHealthKits() {
+      healthKitTimer--;
+      if (healthKitTimer <= 0 && healthKits.length < 3) {
+        const hx = 80 + Math.random() * (W - 160);
+        const hy = 60 + Math.random() * 250;
+        healthKits.push({
+          x: hx,
+          y: hy,
+          life: 600,
+          bob: Math.random() * 6.28,
+        });
+        healthKitTimer =
+          HEALTH_KIT_INTERVAL_MIN +
+          Math.random() * (HEALTH_KIT_INTERVAL_MAX - HEALTH_KIT_INTERVAL_MIN);
+      }
+      for (let i = healthKits.length - 1; i >= 0; i--) {
+        const hk = healthKits[i];
+        hk.life--;
+        hk.bob += 0.05;
+        if (hk.life <= 0) {
+          healthKits.splice(i, 1);
+          continue;
         }
-        // Check game over
-        if (scores.some((s) => s >= WIN_SCORE)) {
-          const winSlot = scores.indexOf(Math.max(...scores));
+        // Pickup by local player
+        if (localState && localState[myId] && !localState[myId].dead && localState[myId].hp > 0) {
+          const p = localState[myId];
+          if (p.hp < MAX_HP) {
+            if (
+              dist({ x: hk.x, y: hk.y }, { x: p.x + 14, y: p.y + 17 }) < 24
+            ) {
+              p.hp = Math.min(MAX_HP, p.hp + HEALTH_KIT_HP);
+              spawnParticles(hk.x, hk.y, "#44ff88", 12, 3);
+              healthKits.splice(i, 1);
+            }
+          }
+        }
+      }
+    }
+
+    function checkMatchEnd() {
+      if (!localState) return false;
+      // Check kill limit
+      for (const pid of Object.keys(localState)) {
+        if ((localState[pid].kills || 0) >= WIN_KILLS) {
+          const winner = localState[pid];
+          const c = PLAYER_COLORS[winner.slot] || PLAYER_COLORS[0];
           setResultMsg(
-            `${PLAYER_COLORS[winSlot].name} wins ${scores.join(" - ")}!`
+            `${c.name} wins with ${winner.kills} kills!`
           );
           running = false;
           setScreen("result");
-          return;
+          return true;
         }
-        // Reset round
-        bullets = [];
-        weaponDrops = [];
-        Object.entries(localState).forEach(([id, p]) => {
-          const sp = SPAWNS[p.slot];
-          p.x = sp.x;
-          p.y = sp.y;
-          p.vx = 0;
-          p.vy = 0;
-          p.hp = MAX_HP;
-          p.invincible = 90;
-          p.shootCd = 0;
-          p.dashCd = 0;
-        });
       }
+      // Check time limit
+      if (matchTick >= MATCH_TIME) {
+        let bestPid = null;
+        let bestScore = -1;
+        for (const pid of Object.keys(localState)) {
+          const s = localState[pid].score || 0;
+          if (s > bestScore) {
+            bestScore = s;
+            bestPid = pid;
+          }
+        }
+        if (bestPid) {
+          const winner = localState[bestPid];
+          const c = PLAYER_COLORS[winner.slot] || PLAYER_COLORS[0];
+          setResultMsg(
+            `Time's up! ${c.name} wins with ${bestScore} points!`
+          );
+        } else {
+          setResultMsg("Time's up! It's a draw!");
+        }
+        running = false;
+        setScreen("result");
+        return true;
+      }
+      return false;
     }
 
     function updateParticles() {
@@ -632,6 +844,15 @@ export default function PixelArena() {
         p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
+    }
+
+    function updateKillFeed() {
+      for (let i = killFeed.length - 1; i >= 0; i--) {
+        killFeed[i].timer--;
+        if (killFeed[i].timer <= 0) killFeed.splice(i, 1);
+      }
+      // Cap at 5 entries
+      if (killFeed.length > 5) killFeed.splice(0, killFeed.length - 5);
     }
 
     // ─── DRAWING ───
@@ -672,17 +893,19 @@ export default function PixelArena() {
 
     function drawPlayer(p, pid) {
       ctx.save();
-      if (p.hp <= 0) {
+      if (p.dead || p.hp <= 0) {
         ctx.restore();
         return;
       }
       if (p.invincible > 0 && Math.floor(p.invincible / 3) % 2 === 0)
         ctx.globalAlpha = 0.35;
-      const c = PLAYER_COLORS[p.slot];
+      const c = PLAYER_COLORS[p.slot] || PLAYER_COLORS[0];
       ctx.shadowColor = c.glow;
       ctx.shadowBlur = 14;
       ctx.fillStyle = c.main;
+      // Body
       ctx.fillRect(p.x + 4, p.y + 10, 20, 22);
+      // Head
       ctx.fillRect(p.x + 6, p.y, 16, 13);
       // Eyes
       ctx.fillStyle = "#fff";
@@ -694,43 +917,63 @@ export default function PixelArena() {
       ctx.fillRect(ex + po, p.y + 5, 2, 2);
       ctx.fillRect(ex + 5 + po, p.y + 5, 2, 2);
       // Legs
-      const lo = Math.abs(p.vx) > 0.5 ? Math.sin(Date.now() * 0.01) * 4 : 0;
+      const lo =
+        Math.abs(p.vx) > 0.5 ? Math.sin(Date.now() * 0.01) * 4 : 0;
       ctx.fillStyle = c.main;
       ctx.fillRect(p.x + 6, p.y + 30, 5, 4 + lo);
       ctx.fillRect(p.x + 17, p.y + 30, 5, 4 - lo);
-      // Weapon indicator
+      // Weapon indicator on character
       const wep = WEAPONS[p.weapon];
       ctx.fillStyle = wep ? wep.color : "#fff";
       const gx = p.facing === 1 ? p.x + 24 : p.x - 10;
       ctx.fillRect(gx, p.y + 14, 10, 3);
-      // Name tag
+
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
+
+      // Health bar above player
+      const hpBarW = 30;
+      const hpBarH = 3;
+      const hpBarX = p.x + 14 - hpBarW / 2;
+      const hpBarY = p.y - 20;
+      ctx.fillStyle = "#0e0e1e";
+      ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
+      const hpFrac = Math.max(0, (p.hp || 0)) / MAX_HP;
+      const hpColor = hpFrac > 0.5 ? "#44ff88" : hpFrac > 0.25 ? "#ffaa33" : "#ff4444";
+      ctx.fillStyle = hpColor;
+      ctx.fillRect(hpBarX, hpBarY, hpBarW * hpFrac, hpBarH);
+
+      // Name tag
       ctx.font = "bold 8px monospace";
       ctx.fillStyle = c.main;
       ctx.textAlign = "center";
-      ctx.fillText(pid === myId ? "YOU" : `P${p.slot + 1}`, p.x + 14, p.y - 6);
+      ctx.fillText(
+        pid === myId ? "YOU" : c.name,
+        p.x + 14,
+        p.y - 24
+      );
       // Weapon name
       ctx.font = "7px monospace";
       ctx.fillStyle = wep ? wep.color : "#888";
-      ctx.fillText(wep ? wep.name : "", p.x + 14, p.y - 14);
+      ctx.fillText(wep ? wep.name : "", p.x + 14, p.y - 32);
       ctx.restore();
     }
 
     function drawBullets() {
-      for (const b of bullets) {
+      for (const b of allBullets) {
+        if (!b) continue;
         ctx.save();
-        ctx.shadowColor = b.color;
+        ctx.shadowColor = b.color || "#fff";
         ctx.shadowBlur = 8;
-        ctx.fillStyle = b.color;
+        ctx.fillStyle = b.color || "#fff";
         ctx.beginPath();
-        ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+        ctx.arc(b.x, b.y, b.size || 3, 0, Math.PI * 2);
         ctx.fill();
         if (b.explode) {
           ctx.strokeStyle = "#ff880066";
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(b.x, b.y, b.size + 3, 0, Math.PI * 2);
+          ctx.arc(b.x, b.y, (b.size || 3) + 3, 0, Math.PI * 2);
           ctx.stroke();
         }
         ctx.restore();
@@ -760,54 +1003,204 @@ export default function PixelArena() {
       }
     }
 
+    function drawHealthKits() {
+      for (const hk of healthKits) {
+        ctx.save();
+        const by = hk.y + Math.sin(hk.bob) * 4;
+        if (hk.life < 100)
+          ctx.globalAlpha = 0.4 + Math.sin(hk.life * 0.2) * 0.4;
+        ctx.shadowColor = "#44ff88";
+        ctx.shadowBlur = 10;
+        // Box
+        ctx.fillStyle = "#0e2e1a";
+        ctx.fillRect(hk.x - 10, by - 10, 20, 20);
+        ctx.strokeStyle = "#44ff88";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(hk.x - 10, by - 10, 20, 20);
+        // Green cross
+        ctx.fillStyle = "#44ff88";
+        ctx.fillRect(hk.x - 2, by - 7, 4, 14);
+        ctx.fillRect(hk.x - 7, by - 2, 14, 4);
+        ctx.restore();
+      }
+    }
+
     function drawParticles() {
       for (const p of particles) {
         ctx.globalAlpha = p.life / p.maxLife;
         ctx.fillStyle = p.color;
-        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        ctx.fillRect(
+          p.x - p.size / 2,
+          p.y - p.size / 2,
+          p.size,
+          p.size
+        );
       }
       ctx.globalAlpha = 1;
     }
 
     function drawHUD() {
       if (!localState) return;
-      const pids = Object.keys(localState);
-      pids.sort((a, b) => localState[a].slot - localState[b].slot);
-      pids.forEach((pid, i) => {
-        const p = localState[pid];
-        const c = PLAYER_COLORS[p.slot];
-        const bx = 15 + i * 290;
+
+      // Timer at top center
+      ctx.save();
+      ctx.font = "bold 14px monospace";
+      ctx.fillStyle = "#ffd700";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "#ffd70044";
+      ctx.shadowBlur = 10;
+      const timeLeft = MATCH_TIME - matchTick;
+      ctx.fillText(formatTime(timeLeft), W / 2, 20);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // My HP bar + info at bottom left
+      if (localState[myId]) {
+        const me = localState[myId];
+        const c = PLAYER_COLORS[me.slot] || PLAYER_COLORS[0];
+
+        ctx.save();
         // HP bar
         ctx.fillStyle = "#0e0e1e";
-        ctx.fillRect(bx, 8, 150, 12);
-        ctx.fillStyle = c.main;
-        ctx.fillRect(bx, 8, (150 * Math.max(0, p.hp)) / MAX_HP, 12);
+        ctx.fillRect(10, H - 50, 160, 14);
+        const hpFrac = Math.max(0, me.hp) / MAX_HP;
+        const hpColor = hpFrac > 0.5 ? "#44ff88" : hpFrac > 0.25 ? "#ffaa33" : "#ff4444";
+        ctx.fillStyle = hpColor;
+        ctx.fillRect(10, H - 50, 160 * hpFrac, 14);
         ctx.strokeStyle = "#333";
-        ctx.strokeRect(bx, 8, 150, 12);
-        // Labels
+        ctx.strokeRect(10, H - 50, 160, 14);
         ctx.font = "bold 9px monospace";
-        ctx.fillStyle = c.main;
-        ctx.textAlign = "left";
-        const label = pid === myId ? "YOU" : `P${p.slot + 1}`;
-        ctx.fillText(`${label} [${scores[p.slot]}]`, bx, 34);
-        ctx.fillStyle = "#888";
-        ctx.font = "8px monospace";
-        const wname = WEAPONS[p.weapon] ? WEAPONS[p.weapon].name : "?";
-        ctx.fillText(wname, bx + 80, 34);
-      });
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.fillText(`${Math.max(0, Math.ceil(me.hp))} HP`, 90, H - 40);
 
-      // Round message
-      if (roundMsg.timer > 0) {
-        roundMsg.timer--;
-        ctx.globalAlpha = Math.min(1, roundMsg.timer / 25);
-        ctx.font = "bold 16px monospace";
+        // Weapon indicator
+        const wep = WEAPONS[me.weapon];
+        ctx.font = "bold 10px monospace";
+        ctx.fillStyle = wep ? wep.color : "#fff";
+        ctx.textAlign = "left";
+        ctx.fillText(wep ? wep.name : "???", 10, H - 28);
+
+        // Stats
+        ctx.font = "8px monospace";
+        ctx.fillStyle = "#888";
+        ctx.fillText(
+          `K:${me.kills || 0}  D:${me.deaths || 0}  Score:${me.score || 0}`,
+          10,
+          H - 18
+        );
+
+        // Dead overlay
+        if (me.dead) {
+          ctx.font = "bold 20px monospace";
+          ctx.fillStyle = "#ff4444";
+          ctx.textAlign = "center";
+          ctx.fillText("ELIMINATED", W / 2, H / 2 - 10);
+          ctx.font = "12px monospace";
+          ctx.fillStyle = "#aaa";
+          ctx.fillText(
+            `Respawning in ${Math.ceil((me.respawnTimer || 0) / 30)}s...`,
+            W / 2,
+            H / 2 + 15
+          );
+        }
+
+        ctx.restore();
+      }
+
+      // Kill feed - top right
+      ctx.save();
+      ctx.textAlign = "right";
+      ctx.font = "8px monospace";
+      for (let i = 0; i < killFeed.length; i++) {
+        const kf = killFeed[i];
+        ctx.globalAlpha = Math.min(1, kf.timer / 30);
+        ctx.fillStyle = kf.color || "#aaa";
+        ctx.fillText(kf.text, W - 10, 36 + i * 12);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // Leaderboard (hold TAB or always show mini version)
+      drawLeaderboard();
+    }
+
+    function drawLeaderboard() {
+      if (!localState) return;
+      const pids = Object.keys(localState);
+      // Sort by score descending
+      pids.sort(
+        (a, b) => (localState[b].score || 0) - (localState[a].score || 0)
+      );
+
+      if (showLeaderboard) {
+        // Full leaderboard overlay
+        ctx.save();
+        ctx.fillStyle = "rgba(11, 11, 20, 0.85)";
+        ctx.fillRect(W / 2 - 170, 40, 340, 30 + pids.length * 22);
+        ctx.strokeStyle = "#ffd700";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(W / 2 - 170, 40, 340, 30 + pids.length * 22);
+
+        ctx.font = "bold 11px monospace";
         ctx.fillStyle = "#ffd700";
         ctx.textAlign = "center";
-        ctx.shadowColor = "#ffd70066";
-        ctx.shadowBlur = 15;
-        ctx.fillText(roundMsg.text, W / 2, H / 2 - 30);
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
+        ctx.fillText("LEADERBOARD", W / 2, 58);
+
+        // Header
+        ctx.font = "bold 8px monospace";
+        ctx.fillStyle = "#666";
+        ctx.textAlign = "left";
+        ctx.fillText("PLAYER", W / 2 - 150, 72);
+        ctx.textAlign = "center";
+        ctx.fillText("K", W / 2 + 30, 72);
+        ctx.fillText("D", W / 2 + 70, 72);
+        ctx.fillText("SCORE", W / 2 + 120, 72);
+
+        pids.forEach((pid, i) => {
+          const p = localState[pid];
+          const c = PLAYER_COLORS[p.slot] || PLAYER_COLORS[0];
+          const yy = 86 + i * 22;
+
+          // Highlight my row
+          if (pid === myId) {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+            ctx.fillRect(W / 2 - 165, yy - 10, 330, 20);
+          }
+
+          ctx.font = "bold 9px monospace";
+          ctx.fillStyle = c.main;
+          ctx.textAlign = "left";
+          ctx.fillText(
+            pid === myId ? `${c.name} (YOU)` : c.name,
+            W / 2 - 150,
+            yy
+          );
+          ctx.textAlign = "center";
+          ctx.fillStyle = "#ddd";
+          ctx.fillText(`${p.kills || 0}`, W / 2 + 30, yy);
+          ctx.fillText(`${p.deaths || 0}`, W / 2 + 70, yy);
+          ctx.fillStyle = "#ffd700";
+          ctx.fillText(`${p.score || 0}`, W / 2 + 120, yy);
+        });
+        ctx.restore();
+      } else {
+        // Mini scoreboard at top-left
+        ctx.save();
+        ctx.font = "7px monospace";
+        ctx.textAlign = "left";
+        const top3 = pids.slice(0, 3);
+        top3.forEach((pid, i) => {
+          const p = localState[pid];
+          const c = PLAYER_COLORS[p.slot] || PLAYER_COLORS[0];
+          ctx.fillStyle = c.main;
+          ctx.fillText(
+            `${pid === myId ? "YOU" : c.name}: ${p.score || 0}`,
+            10,
+            16 + i * 10
+          );
+        });
+        ctx.restore();
       }
     }
 
@@ -820,14 +1213,18 @@ export default function PixelArena() {
         return;
       }
       lastTick = ts;
+      matchTick++;
 
       if (localState && localState[myId]) {
         updatePlayer(localState[myId]);
       }
-      updateBullets();
+      updateAllBullets();
       updateWeaponDrops();
+      updateHealthKits();
       updateParticles();
-      checkRoundEnd();
+      updateKillFeed();
+
+      if (checkMatchEnd()) return;
 
       // Draw
       let sx = 0,
@@ -842,6 +1239,7 @@ export default function PixelArena() {
       drawBg();
       drawPlatforms();
       drawWeaponDrops();
+      drawHealthKits();
       drawParticles();
       drawBullets();
       if (localState) {
@@ -934,7 +1332,7 @@ export default function PixelArena() {
             marginBottom: 30,
           }}
         >
-          3-PLAYER ONLINE BATTLE
+          UP TO 8-PLAYER ONLINE BATTLE
         </p>
 
         <div
@@ -957,7 +1355,7 @@ export default function PixelArena() {
               marginBottom: 5,
             }}
           >
-            — OR JOIN —
+            -- OR JOIN --
           </p>
           <input
             style={inputStyle}
@@ -987,9 +1385,10 @@ export default function PixelArena() {
             lineHeight: 1.8,
           }}
         >
-          <p>🎮 Share the room code with friends</p>
-          <p>⌨️ WASD/Arrows to move • F/J/Enter to shoot • Shift/E to dash</p>
-          <p>📦 Pick up weapon crates to switch weapons!</p>
+          <p>Share the room code with friends</p>
+          <p>WASD/Arrows to move | F/J/Enter to shoot | Shift/E to dash</p>
+          <p>Pick up weapon crates to switch weapons!</p>
+          <p>Hold TAB for leaderboard | 5-min match or first to 15 kills</p>
         </div>
       </div>
     );
@@ -997,6 +1396,10 @@ export default function PixelArena() {
 
   // ─── LOBBY ───
   if (screen === "lobby") {
+    const slots = [];
+    for (let i = 0; i < MAX_PLAYERS; i++) {
+      slots.push(lobbyPlayers[i] || null);
+    }
     return (
       <div style={panelStyle}>
         <h2
@@ -1013,16 +1416,24 @@ export default function PixelArena() {
           Share this code with friends to join!
         </p>
 
-        <div style={{ display: "flex", gap: 20, marginBottom: 30 }}>
-          {[0, 1, 2].map((i) => {
-            const p = lobbyPlayers[i];
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            marginBottom: 30,
+            flexWrap: "wrap",
+            justifyContent: "center",
+            maxWidth: 700,
+          }}
+        >
+          {slots.map((p, i) => {
             const c = PLAYER_COLORS[i];
             return (
               <div
                 key={i}
                 style={{
-                  width: 140,
-                  padding: "18px 12px",
+                  width: 110,
+                  padding: "14px 8px",
                   background: p ? "#14142a" : "#0e0e1a",
                   border: `2px solid ${p ? c.main : "#222"}`,
                   borderRadius: 10,
@@ -1033,15 +1444,15 @@ export default function PixelArena() {
               >
                 <div
                   style={{
-                    width: 40,
-                    height: 40,
-                    margin: "0 auto 10px",
+                    width: 32,
+                    height: 32,
+                    margin: "0 auto 8px",
                     background: p ? c.main : "#1a1a2e",
                     borderRadius: 6,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 18,
+                    fontSize: 14,
                     fontWeight: 900,
                     color: p ? "#fff" : "#333",
                     boxShadow: p ? `0 0 15px ${c.glow}` : "none",
@@ -1052,19 +1463,19 @@ export default function PixelArena() {
                 <p
                   style={{
                     color: p ? c.main : "#333",
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: 700,
                   }}
                 >
                   {p
                     ? p.id === myId
                       ? "YOU"
-                      : `Player ${i + 1}`
-                    : "Waiting..."}
+                      : c.name
+                    : "Empty"}
                 </p>
                 {p?.ready && (
-                  <p style={{ color: "#44ff88", fontSize: 9, marginTop: 4 }}>
-                    ✓ READY
+                  <p style={{ color: "#44ff88", fontSize: 8, marginTop: 3 }}>
+                    READY
                   </p>
                 )}
               </div>
@@ -1128,12 +1539,12 @@ export default function PixelArena() {
                     </div>
                     {w.burst > 1 && (
                       <div style={{ color: "#ffaa33", fontSize: 8 }}>
-                        ×{w.burst} pellets
+                        x{w.burst} pellets
                       </div>
                     )}
                     {w.explode && (
                       <div style={{ color: "#ff6600", fontSize: 8 }}>
-                        💥 Explosive
+                        Explosive
                       </div>
                     )}
                   </button>
@@ -1166,20 +1577,21 @@ export default function PixelArena() {
             {WEAPONS[myWeapon].name}
           </span>
         </p>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
           {lobbyPlayers.map((p, i) => (
             <div
               key={i}
               style={{
                 padding: "8px 16px",
                 background: "#14142a",
-                border: `1px solid ${PLAYER_COLORS[i].main}`,
+                border: `1px solid ${(PLAYER_COLORS[i] || PLAYER_COLORS[0]).main}`,
                 borderRadius: 6,
                 fontSize: 11,
-                color: PLAYER_COLORS[i].main,
+                color: (PLAYER_COLORS[i] || PLAYER_COLORS[0]).main,
               }}
             >
-              {p.id === myId ? "YOU" : `P${i + 1}`} {p.ready ? "✓" : "..."}
+              {p.id === myId ? "YOU" : `P${i + 1}`}{" "}
+              {p.ready ? "READY" : "..."}
             </div>
           ))}
         </div>
@@ -1213,7 +1625,7 @@ export default function PixelArena() {
             textShadow: "0 0 20px #ffd70044",
           }}
         >
-          🏆 GAME OVER 🏆
+          GAME OVER
         </h2>
         <p style={{ fontSize: 16, color: "#e8e8f0", marginBottom: 20 }}>
           {resultMsg}
@@ -1252,8 +1664,8 @@ export default function PixelArena() {
           letterSpacing: 2,
         }}
       >
-        ROOM: {roomCode} &nbsp;|&nbsp; WASD/Arrows: Move &nbsp; F/J/Enter: Shoot
-        &nbsp; Shift/E: Dash &nbsp; First to {WIN_SCORE} wins!
+        ROOM: {roomCode} &nbsp;|&nbsp; WASD/Arrows: Move &nbsp; F/J/Enter:
+        Shoot &nbsp; Shift/E: Dash &nbsp; TAB: Leaderboard
       </div>
       <canvas
         ref={canvasRef}
@@ -1276,7 +1688,8 @@ export default function PixelArena() {
           marginTop: 6,
         }}
       >
-        📦 Pick up weapon crates on the map to switch weapons mid-game!
+        Pick up weapon crates + health kits on the map | First to 15 kills or
+        highest score in 5 min wins!
       </div>
     </div>
   );
