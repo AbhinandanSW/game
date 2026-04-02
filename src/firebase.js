@@ -29,18 +29,19 @@ const storage = {
   async set(key, value) {
     await set(ref(db, `rooms/${safeKey(key)}`), value);
   },
-  // Write only a specific player's game data (avoids race conditions)
-  async setPlayer(roomKey, playerId, playerData) {
-    await set(
-      ref(db, `rooms/${safeKey(roomKey)}/gameData/players/${playerId}`),
-      playerData
-    );
+  // Write a player's game data + their bullets in one call
+  async syncPlayer(roomKey, playerId, playerData, playerBullets) {
+    const base = `rooms/${safeKey(roomKey)}`;
+    await Promise.all([
+      set(ref(db, `${base}/gameData/players/${playerId}`), playerData),
+      set(ref(db, `${base}/bullets/${playerId}`), playerBullets || []),
+    ]);
   },
   // Write scores
   async setScores(roomKey, scores) {
     await set(ref(db, `rooms/${safeKey(roomKey)}/scores`), scores);
   },
-  // Subscribe to real-time updates for game data
+  // Subscribe to real-time updates
   subscribe(key, callback) {
     const dbRef = ref(db, `rooms/${safeKey(key)}`);
     onValue(dbRef, (snapshot) => {

@@ -251,7 +251,8 @@ export default function PixelArena() {
     const ctx = canvas.getContext("2d");
 
     let localState = null;
-    let bullets = [];
+    let myBullets = []; // bullets I fired — synced to Firebase
+    let remoteBullets = []; // bullets from other players — from Firebase
     let particles = [];
     let weaponDrops = [];
     let scores = [0, 0, 0];
@@ -261,7 +262,7 @@ export default function PixelArena() {
     let dropTimer = 300;
     let numPlayers = 2;
 
-    // Real-time subscription — pulls other players' state instantly
+    // Real-time subscription — pulls other players' state + bullets
     const unsub = storage.subscribe(`room:${roomCode}`, (room) => {
       if (!room || !room.gameData || !room.gameData.players) return;
       const remotePlayers = room.gameData.players;
@@ -269,29 +270,46 @@ export default function PixelArena() {
       scores = room.scores || scores;
 
       if (!localState) {
-        // First load — initialize all players
         localState = { ...remotePlayers };
       } else {
-        // Update only OTHER players from remote
         for (const pid of Object.keys(remotePlayers)) {
           if (pid !== myId) {
             localState[pid] = remotePlayers[pid];
           }
         }
-        // Also add any new players not yet in localState
         for (const pid of Object.keys(remotePlayers)) {
           if (!localState[pid]) {
             localState[pid] = remotePlayers[pid];
           }
         }
       }
+
+      // Pull remote bullets (from all other players)
+      const allRemoteBullets = [];
+      if (room.bullets) {
+        for (const pid of Object.keys(room.bullets)) {
+          if (pid !== myId && Array.isArray(room.bullets[pid])) {
+            for (const b of room.bullets[pid]) {
+              allRemoteBullets.push({ ...b, _remote: true });
+            }
+          }
+        }
+      }
+      remoteBullets = allRemoteBullets;
     });
 
-    // Sync only MY player state to server (avoids overwriting others)
+    // Sync my player state + my bullets to server
     async function syncState() {
       if (!localState || !localState[myId]) return;
       try {
-        await storage.setPlayer(`room:${roomCode}`, myId, localState[myId]);
+        // Only sync bullets that are still alive (limit to keep payload small)
+        const bulletsToSync = myBullets.map((b) => ({
+          x: b.x, y: b.y, vx: b.vx, vy: b.vy,
+          owner: b.owner, color: b.color, damage: b.damage,
+          life: b.life, size: b.size, explode: b.explode || false,
+          weapon: b.weapon,
+        }));
+        await storage.syncPlayer(`room:${roomCode}`, myId, localState[myId], bulletsToSync);
         await storage.setScores(`room:${roomCode}`, scores);
       } catch {}
     }
