@@ -129,7 +129,7 @@ export default function PixelArena() {
       scores: [0, 0, 0],
     };
     try {
-      await storage.set(`room:${code}`, JSON.stringify(roomData));
+      await storage.set(`room:${code}`, roomData);
       setScreen("lobby");
       setError("");
     } catch (e) {
@@ -146,21 +146,23 @@ export default function PixelArena() {
         setError("Room not found!");
         return;
       }
-      const room = JSON.parse(res.value);
-      if (room.players.length >= 3) {
+      const room = res.value;
+      const players = room.players || [];
+      if (players.length >= 3) {
         setError("Room is full!");
         return;
       }
       const id = uid();
-      const slot = room.players.length;
-      room.players.push({
+      const slot = players.length;
+      players.push({
         id,
         name: `P${slot + 1}`,
         slot,
         weapon: "pistol",
         ready: false,
       });
-      await storage.set(`room:${code}`, JSON.stringify(room));
+      room.players = players;
+      await storage.set(`room:${code}`, room);
       setMyId(id);
       setRoomCode(code);
       setPlayerSlot(slot);
@@ -171,21 +173,17 @@ export default function PixelArena() {
     }
   }, [roomInput]);
 
-  // ─── LOBBY POLLING ───
+  // ─── LOBBY POLLING (real-time) ───
   useEffect(() => {
     if (screen !== "lobby" && screen !== "weapon") return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await storage.get(`room:${roomCode}`);
-        if (!res) return;
-        const room = JSON.parse(res.value);
-        setLobbyPlayers(room.players);
-        if (room.state === "playing" && screen === "weapon") {
-          setScreen("game");
-        }
-      } catch {}
-    }, 800);
-    return () => clearInterval(interval);
+    const unsub = storage.subscribe(`room:${roomCode}`, (room) => {
+      const players = room.players || [];
+      setLobbyPlayers(players);
+      if (room.state === "playing" && screen === "weapon") {
+        setScreen("game");
+      }
+    });
+    return unsub;
   }, [screen, roomCode]);
 
   // ─── WEAPON SELECT & READY ───
@@ -195,20 +193,22 @@ export default function PixelArena() {
       try {
         const res = await storage.get(`room:${roomCode}`);
         if (!res) return;
-        const room = JSON.parse(res.value);
-        const me = room.players.find((p) => p.id === myId);
+        const room = res.value;
+        const players = room.players || [];
+        const me = players.find((p) => p.id === myId);
         if (me) {
           me.weapon = weapon;
           me.ready = true;
         }
+        room.players = players;
         // If all ready (at least 2 players), start game
         const allReady =
-          room.players.length >= 2 && room.players.every((p) => p.ready);
+          players.length >= 2 && players.every((p) => p.ready);
         if (allReady) {
           room.state = "playing";
-          room.gameData = createInitialGameData(room.players);
+          room.gameData = createInitialGameData(players);
         }
-        await storage.set(`room:${roomCode}`, JSON.stringify(room));
+        await storage.set(`room:${roomCode}`, room);
         setScreen("weapon");
       } catch {}
     },
@@ -261,41 +261,38 @@ export default function PixelArena() {
     let dropTimer = 300;
     let numPlayers = 2;
 
-    // Fetch initial state
-    async function fetchState() {
-      try {
-        const res = await storage.get(`room:${roomCode}`);
-        if (!res) return;
-        const room = JSON.parse(res.value);
-        if (room.gameData) {
-          localState = room.gameData.players;
-          numPlayers = room.players.length;
-          scores = room.scores || [0, 0, 0];
+    // Real-time subscription — pulls other players' state instantly
+    const unsub = storage.subscribe(`room:${roomCode}`, (room) => {
+      if (!room || !room.gameData || !room.gameData.players) return;
+      const remotePlayers = room.gameData.players;
+      numPlayers = room.players ? room.players.length : 2;
+      scores = room.scores || scores;
+
+      if (!localState) {
+        // First load — initialize all players
+        localState = { ...remotePlayers };
+      } else {
+        // Update only OTHER players from remote
+        for (const pid of Object.keys(remotePlayers)) {
+          if (pid !== myId) {
+            localState[pid] = remotePlayers[pid];
+          }
         }
-      } catch {}
-    }
+        // Also add any new players not yet in localState
+        for (const pid of Object.keys(remotePlayers)) {
+          if (!localState[pid]) {
+            localState[pid] = remotePlayers[pid];
+          }
+        }
+      }
+    });
 
-    fetchState();
-
-    // Sync my state to server
+    // Sync only MY player state to server (avoids overwriting others)
     async function syncState() {
       if (!localState || !localState[myId]) return;
       try {
-        const res = await storage.get(`room:${roomCode}`);
-        if (!res) return;
-        const room = JSON.parse(res.value);
-        if (!room.gameData) return;
-        // Update my player in shared state
-        room.gameData.players[myId] = localState[myId];
-        room.scores = scores;
-        await storage.set(`room:${roomCode}`, JSON.stringify(room));
-
-        // Pull other players
-        for (const pid of Object.keys(room.gameData.players)) {
-          if (pid !== myId) {
-            localState[pid] = room.gameData.players[pid];
-          }
-        }
+        await storage.setPlayer(`room:${roomCode}`, myId, localState[myId]);
+        await storage.setScores(`room:${roomCode}`, scores);
       } catch {}
     }
 
@@ -844,6 +841,7 @@ export default function PixelArena() {
     return () => {
       running = false;
       clearInterval(syncInterval);
+      unsub();
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
