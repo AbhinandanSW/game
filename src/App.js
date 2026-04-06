@@ -1,6 +1,6 @@
 import "./styles.css";
-import PixelArena from "./game";
+import FighterGame from "./game/FighterGame";
 
 export default function App() {
-  return <PixelArena />;
+  return <FighterGame />;
 }
