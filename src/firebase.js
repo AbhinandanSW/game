@@ -85,10 +85,24 @@ export function subscribeAuth(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
+// ─── Admin Emails (from env var) ───────────────────────────
+const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+export function isAdminEmail(email) {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
 // ─── Allowlist ─────────────────────────────────────────────
-// Firestore structure: allowlist/{email-lowercased} = { approved: true, addedAt, role? }
-// Admins add emails manually from Firebase Console.
+// Admins (from env) always allowed. Others must be in the Firestore
+// allowlist/{email-lowercased} = { approved: true, addedBy, addedAt }
 export async function checkAllowlist(email) {
+  if (isAdminEmail(email)) {
+    return { allowed: true, data: { role: "admin" } };
+  }
   try {
     const id = email.toLowerCase();
     const snap = await getDoc(doc(db, "allowlist", id));
@@ -99,6 +113,67 @@ export async function checkAllowlist(email) {
   } catch (e) {
     console.warn("checkAllowlist failed:", e);
     return { allowed: false, reason: "error", message: e.message };
+  }
+}
+
+// ─── Admin actions on allowlist & access requests ─────────
+export async function approveUser(email, byEmail) {
+  try {
+    const id = email.toLowerCase();
+    await setDoc(doc(db, "allowlist", id), {
+      email: id,
+      approved: true,
+      addedBy: byEmail || "admin",
+      addedAt: serverTimestamp(),
+    });
+    // Remove from access requests
+    await deleteDoc(doc(db, "accessRequests", id)).catch(() => {});
+  } catch (e) {
+    console.warn("approveUser failed:", e);
+    throw e;
+  }
+}
+
+export async function revokeUser(email) {
+  try {
+    const id = email.toLowerCase();
+    await deleteDoc(doc(db, "allowlist", id));
+  } catch (e) {
+    console.warn("revokeUser failed:", e);
+    throw e;
+  }
+}
+
+export async function denyRequest(email) {
+  try {
+    const id = email.toLowerCase();
+    await deleteDoc(doc(db, "accessRequests", id));
+  } catch (e) {
+    console.warn("denyRequest failed:", e);
+  }
+}
+
+export function subscribeAllowlist(callback) {
+  try {
+    return onSnapshot(collection(db, "allowlist"), (snap) => {
+      const list = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      callback(list);
+    }, (err) => console.warn("subscribeAllowlist error:", err));
+  } catch (e) {
+    return () => {};
+  }
+}
+
+export function subscribeAccessRequests(callback) {
+  try {
+    return onSnapshot(collection(db, "accessRequests"), (snap) => {
+      const list = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      callback(list);
+    }, (err) => console.warn("subscribeAccessRequests error:", err));
+  } catch (e) {
+    return () => {};
   }
 }
 

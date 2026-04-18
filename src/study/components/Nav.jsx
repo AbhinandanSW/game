@@ -1,6 +1,6 @@
 import React from "react";
 import useStudyStore from "../store/useStudyStore";
-import { signOut } from "../../firebase";
+import { signOut, isAdminEmail } from "../../firebase";
 
 const LINKS = [
   { id: "overview", label: "Overview" },
@@ -20,6 +20,10 @@ export default function Nav() {
   const route = useStudyStore((s) => s.route);
   const navigate = useStudyStore((s) => s.navigate);
 
+  const links = isAdminEmail(user?.email)
+    ? [...LINKS, { id: "admin", label: "★ Admin" }]
+    : LINKS;
+
   return (
     <nav className="sp-nav">
       <div className="sp-nav-inner">
@@ -28,7 +32,7 @@ export default function Nav() {
           <span>Skill Development Plan</span>
         </div>
         <div className="sp-nav-links">
-          {LINKS.map((l) => (
+          {links.map((l) => (
             <a
               key={l.id}
               className={route.section === l.id ? "active" : ""}

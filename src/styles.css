@@ -912,6 +912,56 @@ button { font-family: inherit; }
   color: var(--ink); white-space: nowrap; font-weight: 600;
 }
 
+/* ─── Admin Panel ─────────────────────────────────────────── */
+.sp-admin-denied {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-left: 3px solid var(--hard);
+  border-radius: 4px; padding: 28px;
+}
+.sp-admin-denied h2 {
+  font-family: var(--serif); font-size: 24px; margin-bottom: 10px;
+}
+.sp-admin-denied p { color: var(--ink-dim); font-size: 14px; line-height: 1.6; }
+.sp-admin-denied code {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--bg); padding: 1px 6px; border-radius: 3px;
+  color: var(--accent-2);
+}
+.sp-admin-block {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 24px 28px; margin-bottom: 20px;
+}
+.sp-admin-block-head { margin-bottom: 18px; }
+.sp-admin-block-head h3 {
+  font-family: var(--serif); font-size: 22px;
+  letter-spacing: -0.02em; margin-bottom: 4px;
+}
+.sp-admin-block-head p { font-size: 13px; color: var(--ink-dim); }
+.sp-admin-list { display: flex; flex-direction: column; gap: 8px; }
+.sp-admin-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: 4px;
+  gap: 16px; flex-wrap: wrap;
+}
+.sp-admin-user {
+  display: flex; align-items: center; gap: 12px;
+  min-width: 0; flex: 1;
+}
+.sp-admin-name {
+  font-weight: 600; font-size: 14px; color: var(--ink);
+}
+.sp-admin-email {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-faint); margin-top: 2px;
+}
+.sp-admin-actions { display: flex; gap: 8px; }
+.sp-admin-add-form {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.sp-admin-add-form .sp-search { flex: 1; min-width: 200px; }
+
 /* ─── Auth state icons ────────────────────────────────────── */
 .sp-auth-state-icon {
   font-size: 48px; margin-bottom: 20px;
