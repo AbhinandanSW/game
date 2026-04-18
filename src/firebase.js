@@ -11,25 +11,44 @@ import {
   doc,
   setDoc,
   getDoc,
-  updateDoc,
   collection,
   onSnapshot,
   serverTimestamp,
   deleteDoc,
 } from "firebase/firestore";
 
-// NOTE: To enable Google Auth + Firestore, the Firebase console needs:
-//   - Authentication → Sign-in method → Google enabled
-//   - Firestore Database created (test/production mode)
+// ─── Firebase Config from Environment Variables ────────────
+// Values are injected at build time by Create React App.
+// Set these in .env (local) or Vercel Dashboard (deployment).
 const firebaseConfig = {
-  apiKey: "AIzaSyCN0wn2rwDc2GwNanZJrFQxEzPSvbcXFQs",
-  authDomain: "testgame9328479.firebaseapp.com",
-  databaseURL: "https://testgame9328479-default-rtdb.firebaseio.com",
-  projectId: "testgame9328479",
-  storageBucket: "testgame9328479.firebasestorage.app",
-  messagingSenderId: "250228830610",
-  appId: "1:250228830610:web:a84f20e5645428b5cf114b",
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
 };
+
+// Validate config — surface clear error if env vars missing
+export const configStatus = (() => {
+  const missing = Object.entries(firebaseConfig)
+    .filter(([, v]) => !v)
+    .map(([k]) => k);
+  return {
+    ok: missing.length === 0,
+    missing,
+  };
+})();
+
+if (!configStatus.ok) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[Firebase] Missing env vars:",
+    configStatus.missing.join(", "),
+    "— set them in .env (local) or Vercel environment variables."
+  );
+}
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -38,8 +57,24 @@ const googleProvider = new GoogleAuthProvider();
 
 // ─── Auth ──────────────────────────────────────────────────
 export async function signInWithGoogle() {
-  const result = await signInWithPopup(auth, googleProvider);
-  return result.user;
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return { ok: true, user: result.user };
+  } catch (err) {
+    // Friendly error messaging
+    let message = err.message || "Sign-in failed.";
+    if (err.code === "auth/unauthorized-domain") {
+      const host = typeof window !== "undefined" ? window.location.hostname : "your-domain";
+      message = `Domain "${host}" is not authorized for Google Sign-In. Add it in Firebase Console → Authentication → Settings → Authorized domains.`;
+    } else if (err.code === "auth/configuration-not-found") {
+      message = "Google Sign-In is not enabled. Go to Firebase Console → Authentication → Sign-in method → Google → Enable.";
+    } else if (err.code === "auth/popup-blocked") {
+      message = "Popup blocked. Allow popups for this site and try again.";
+    } else if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+      message = "Sign-in cancelled.";
+    }
+    return { ok: false, error: err.code, message };
+  }
 }
 
 export async function signOut() {
@@ -50,25 +85,109 @@ export function subscribeAuth(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-// ─── Progress ──────────────────────────────────────────────
-// Structure: users/{uid}/progress/{problemId} = { done: boolean, code: {lang: string}, notes: string }
+// ─── Allowlist ─────────────────────────────────────────────
+// Firestore structure: allowlist/{email-lowercased} = { approved: true, addedAt, role? }
+// Admins add emails manually from Firebase Console.
+export async function checkAllowlist(email) {
+  try {
+    const id = email.toLowerCase();
+    const snap = await getDoc(doc(db, "allowlist", id));
+    if (!snap.exists()) return { allowed: false, reason: "not_listed" };
+    const data = snap.data();
+    if (data.approved === false) return { allowed: false, reason: "pending" };
+    return { allowed: true, data };
+  } catch (e) {
+    console.warn("checkAllowlist failed:", e);
+    return { allowed: false, reason: "error", message: e.message };
+  }
+}
+
+// Log a request to join (so admin sees who wants access)
+export async function requestAccess(user) {
+  try {
+    const id = user.email.toLowerCase();
+    await setDoc(
+      doc(db, "accessRequests", id),
+      {
+        email: user.email,
+        name: user.displayName || "",
+        photo: user.photoURL || "",
+        uid: user.uid,
+        requestedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn("requestAccess failed:", e);
+  }
+}
+
+// ─── User Profile ──────────────────────────────────────────
+// users/{uid} = { email, name, photo, lastSeen }
+export async function upsertUserProfile(user) {
+  try {
+    await setDoc(
+      doc(db, "users", user.uid),
+      {
+        email: user.email,
+        name: user.displayName || "",
+        photo: user.photoURL || "",
+        lastSeen: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn("upsertUserProfile failed:", e);
+  }
+}
+
+// Subscribe to all users (for leaderboard)
+export function subscribeAllUsers(callback) {
+  try {
+    return onSnapshot(collection(db, "users"), (snap) => {
+      const list = [];
+      snap.forEach((d) => list.push({ uid: d.id, ...d.data() }));
+      callback(list);
+    }, (err) => console.warn("subscribeAllUsers error:", err));
+  } catch (e) {
+    return () => {};
+  }
+}
+
+// ─── Public Progress Summary ───────────────────────────────
+// progressSummary/{uid} = { done: count, total: count, updatedAt }
+// Only aggregate counts, no problem details. Safe for leaderboard.
+export async function updateProgressSummary(uid, done, total) {
+  try {
+    await setDoc(
+      doc(db, "progressSummary", uid),
+      { done, total, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn("updateProgressSummary failed:", e);
+  }
+}
+
+export function subscribeAllProgressSummary(callback) {
+  try {
+    return onSnapshot(collection(db, "progressSummary"), (snap) => {
+      const data = {};
+      snap.forEach((d) => { data[d.id] = d.data(); });
+      callback(data);
+    }, (err) => console.warn("subscribeAllProgressSummary error:", err));
+  } catch (e) {
+    return () => {};
+  }
+}
+
+// ─── Progress (per-user detail, private) ───────────────────
 export async function setProgress(uid, problemId, data) {
   try {
     const ref = doc(db, "users", uid, "progress", problemId);
     await setDoc(ref, { ...data, updatedAt: serverTimestamp() }, { merge: true });
   } catch (e) {
     console.warn("setProgress failed:", e);
-  }
-}
-
-export async function getProgress(uid, problemId) {
-  try {
-    const ref = doc(db, "users", uid, "progress", problemId);
-    const snap = await getDoc(ref);
-    return snap.exists() ? snap.data() : null;
-  } catch (e) {
-    console.warn("getProgress failed:", e);
-    return null;
   }
 }
 
@@ -81,12 +200,11 @@ export function subscribeProgress(uid, callback) {
       callback(data);
     }, (err) => console.warn("subscribeProgress error:", err));
   } catch (e) {
-    console.warn("subscribeProgress failed:", e);
     return () => {};
   }
 }
 
-// ─── Answers (for System Design, Concepts) ─────────────────
+// ─── Answers (System Design, Concept notes) ────────────────
 export async function setAnswer(uid, itemId, answer) {
   try {
     const ref = doc(db, "users", uid, "answers", itemId);

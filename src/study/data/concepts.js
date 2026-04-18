@@ -1,6 +1,7 @@
 // Deep-dive concept explanations
+export { CONCEPTS_COMMON } from "./concepts-common";
 
-export const CONCEPTS_COMMON = [
+const _OLD_COMMON_UNUSED = [
   {
     id: "c-xss",
     n: "XSS Prevention",

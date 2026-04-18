@@ -4,6 +4,7 @@ import { signOut } from "../../firebase";
 
 const LINKS = [
   { id: "overview", label: "Overview" },
+  { id: "dashboard", label: "Dashboard" },
   { id: "dsa", label: "DSA" },
   { id: "system-design", label: "System Design" },
   { id: "machine-coding", label: "Machine Coding" },

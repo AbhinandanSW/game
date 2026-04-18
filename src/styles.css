@@ -912,6 +912,147 @@ button { font-family: inherit; }
   color: var(--ink); white-space: nowrap; font-weight: 600;
 }
 
+/* ─── Auth state icons ────────────────────────────────────── */
+.sp-auth-state-icon {
+  font-size: 48px; margin-bottom: 20px;
+  text-align: center;
+  font-family: var(--serif);
+}
+.sp-auth-note code {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--bg); padding: 1px 5px; border-radius: 3px;
+  color: var(--accent-2);
+}
+
+/* ─── Leaderboard ─────────────────────────────────────────── */
+.sp-lb-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px; margin-bottom: 28px;
+}
+.sp-lb-summary-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 22px 20px;
+  position: relative; overflow: hidden;
+}
+.sp-lb-summary-card::before {
+  content: ''; position: absolute; top: 0; left: 0;
+  width: 3px; height: 100%; background: var(--accent);
+}
+.sp-lb-summary-card:nth-child(2)::before { background: var(--accent-3); }
+.sp-lb-summary-card:nth-child(3)::before { background: var(--accent-2); }
+.sp-lb-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 10px;
+}
+.sp-lb-big {
+  font-family: var(--serif); font-weight: 800;
+  font-size: 36px; line-height: 1;
+  letter-spacing: -0.02em; color: var(--ink);
+  margin-bottom: 6px;
+}
+.sp-lb-sub { font-size: 12px; color: var(--ink-dim); }
+
+.sp-lb-list {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden;
+}
+.sp-lb-head {
+  display: grid;
+  grid-template-columns: 60px 1.5fr 2fr 0.8fr;
+  padding: 12px 20px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--ink-faint);
+  gap: 16px;
+}
+.sp-lb-row {
+  display: grid;
+  grid-template-columns: 60px 1.5fr 2fr 0.8fr;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 16px;
+  transition: background 0.15s;
+}
+.sp-lb-row:last-child { border-bottom: none; }
+.sp-lb-row:hover { background: var(--bg-elev); }
+.sp-lb-row.me {
+  background: rgba(255,107,53,0.05);
+  border-left: 3px solid var(--accent);
+  padding-left: 17px;
+}
+.sp-lb-rank {
+  font-family: var(--mono); font-size: 14px;
+  color: var(--ink-dim); font-weight: 600;
+}
+.sp-lb-medal { font-size: 20px; }
+.sp-lb-player {
+  display: flex; align-items: center; gap: 12px;
+  min-width: 0;
+}
+.sp-lb-avatar, .sp-lb-avatar-ph {
+  width: 36px; height: 36px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.sp-lb-avatar-ph {
+  background: var(--accent);
+  color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+}
+.sp-lb-name {
+  font-weight: 600; font-size: 14px;
+  display: flex; align-items: center; gap: 8px;
+  color: var(--ink);
+}
+.sp-lb-you-tag {
+  font-family: var(--mono); font-size: 9px;
+  background: var(--accent); color: var(--bg);
+  padding: 2px 7px; border-radius: 100px;
+  letter-spacing: 0.1em; font-weight: 700;
+}
+.sp-lb-email {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-faint); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 200px;
+}
+.sp-lb-bar {
+  display: flex; align-items: center; gap: 10px;
+}
+.sp-lb-bar-track {
+  flex: 1; height: 8px;
+  background: var(--bg); border-radius: 100px;
+  overflow: hidden; position: relative;
+}
+.sp-lb-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.4s;
+}
+.sp-lb-pct {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-dim); min-width: 36px; text-align: right;
+}
+.sp-lb-count {
+  font-family: var(--mono); font-size: 13px; text-align: right;
+}
+.sp-lb-count strong { color: var(--ink); font-weight: 700; }
+.sp-lb-count span { color: var(--ink-faint); }
+
+@media (max-width: 700px) {
+  .sp-lb-head, .sp-lb-row {
+    grid-template-columns: 40px 1.3fr 1fr;
+    font-size: 12px;
+  }
+  .sp-lb-head > div:nth-child(3), .sp-lb-row > div:nth-child(3) { display: none; }
+  .sp-lb-email { max-width: 140px; }
+}
+
 .sp-toast {
   position: fixed; bottom: 90px; left: 50%;
   transform: translateX(-50%) translateY(20px);

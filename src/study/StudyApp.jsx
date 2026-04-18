@@ -5,10 +5,17 @@ import {
   subscribeProgress,
   subscribeAnswers,
   subscribeEntries,
+  checkAllowlist,
+  upsertUserProfile,
+  updateProgressSummary,
+  signOut,
 } from "../firebase";
+import { ALL_DSA } from "./data/dsa";
+import { JS_PROBLEMS } from "./data/jsProblems";
 import AuthGate from "./components/AuthGate";
 import Nav from "./components/Nav";
 import Overview from "./components/Overview";
+import Leaderboard from "./components/Leaderboard";
 import DSA from "./components/DSA";
 import DSAProblem from "./components/DSAProblem";
 import SystemDesign from "./components/SystemDesign";
@@ -34,9 +41,21 @@ export default function StudyApp() {
   const setEntries = useStudyStore((s) => s.setEntries);
   const route = useStudyStore((s) => s.route);
 
-  // Auth subscription
+  // Auth subscription — check allowlist on every auth state change
   useEffect(() => {
-    const unsub = subscribeAuth((u) => setUser(u || null));
+    const unsub = subscribeAuth(async (u) => {
+      if (!u) { setUser(null); return; }
+      // Re-check allowlist — protects against stale sessions if admin revoked access
+      const check = await checkAllowlist(u.email);
+      if (!check.allowed) {
+        await signOut();
+        setUser(null);
+        return;
+      }
+      // Upsert profile for leaderboard visibility
+      await upsertUserProfile(u);
+      setUser(u);
+    });
     return () => unsub && unsub();
   }, [setUser]);
 
@@ -58,6 +77,16 @@ export default function StudyApp() {
     };
   }, [user, setProgress, setAnswers, setEntries]);
 
+  // Publish progress summary whenever progress changes (debounced)
+  const progress = useStudyStore((s) => s.progress);
+  useEffect(() => {
+    if (!user) return;
+    const done = Object.values(progress).filter((p) => p?.done).length;
+    const total = ALL_DSA.length + JS_PROBLEMS.length;
+    const t = setTimeout(() => updateProgressSummary(user.uid, done, total), 1500);
+    return () => clearTimeout(t);
+  }, [progress, user]);
+
   if (authLoading) {
     return (
       <div className="sp-loading">
@@ -73,6 +102,7 @@ export default function StudyApp() {
       <Nav />
       <main className="sp-main">
         {route.section === "overview" && <Overview />}
+        {route.section === "dashboard" && <Leaderboard />}
         {route.section === "dsa" && !route.itemId && <DSA />}
         {route.section === "dsa" && route.itemId && <DSAProblem id={route.itemId} />}
         {route.section === "system-design" && !route.itemId && <SystemDesign />}
