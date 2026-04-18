@@ -117,21 +117,17 @@ export async function checkAllowlist(email) {
 }
 
 // ─── Admin actions on allowlist & access requests ─────────
+// Throws on permission failure so UI can surface the actual error.
 export async function approveUser(email, byEmail) {
-  try {
-    const id = email.toLowerCase();
-    await setDoc(doc(db, "allowlist", id), {
-      email: id,
-      approved: true,
-      addedBy: byEmail || "admin",
-      addedAt: serverTimestamp(),
-    });
-    // Remove from access requests
-    await deleteDoc(doc(db, "accessRequests", id)).catch(() => {});
-  } catch (e) {
-    console.warn("approveUser failed:", e);
-    throw e;
-  }
+  const id = email.toLowerCase();
+  await setDoc(doc(db, "allowlist", id), {
+    email: id,
+    approved: true,
+    addedBy: byEmail || "admin",
+    addedAt: serverTimestamp(),
+  });
+  // Remove from access requests (silent fail if rule blocks delete)
+  try { await deleteDoc(doc(db, "accessRequests", id)); } catch {}
 }
 
 export async function revokeUser(email) {
@@ -177,24 +173,18 @@ export function subscribeAccessRequests(callback) {
   }
 }
 
-// Log a request to join (so admin sees who wants access)
+// Log a request to join (so admin sees who wants access).
+// Uses setDoc without merge — clean create-or-replace semantics.
+// Throws on failure so caller can distinguish success/failure.
 export async function requestAccess(user) {
-  try {
-    const id = user.email.toLowerCase();
-    await setDoc(
-      doc(db, "accessRequests", id),
-      {
-        email: user.email,
-        name: user.displayName || "",
-        photo: user.photoURL || "",
-        uid: user.uid,
-        requestedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  } catch (e) {
-    console.warn("requestAccess failed:", e);
-  }
+  const id = user.email.toLowerCase();
+  await setDoc(doc(db, "accessRequests", id), {
+    email: user.email,
+    name: user.displayName || "",
+    photo: user.photoURL || "",
+    uid: user.uid,
+    requestedAt: serverTimestamp(),
+  });
 }
 
 // ─── User Profile ──────────────────────────────────────────

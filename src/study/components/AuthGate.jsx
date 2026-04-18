@@ -1,18 +1,21 @@
 import React, { useState } from "react";
-import { signInWithGoogle, checkAllowlist, requestAccess, signOut, configStatus } from "../../firebase";
+import useStudyStore from "../store/useStudyStore";
+import { signInWithGoogle, configStatus } from "../../firebase";
 
 export default function AuthGate() {
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [state, setState] = useState("idle"); // idle | pending | denied
+  const [localErr, setLocalErr] = useState("");
+  const authStatus = useStudyStore((s) => s.authStatus);
+  const authError = useStudyStore((s) => s.authError);
+  const setAuthStatus = useStudyStore((s) => s.setAuthStatus);
 
   const handleSignIn = async () => {
     setLoading(true);
-    setErr("");
-    setState("idle");
+    setLocalErr("");
+    setAuthStatus("idle");
 
     if (!configStatus.ok) {
-      setErr(`Firebase env vars not set: ${configStatus.missing.join(", ")}. Check .env or Vercel env settings.`);
+      setLocalErr(`Firebase env vars not set: ${configStatus.missing.join(", ")}. Check .env or Vercel env settings.`);
       setLoading(false);
       return;
     }
@@ -20,26 +23,18 @@ export default function AuthGate() {
     const res = await signInWithGoogle();
 
     if (!res.ok) {
-      setErr(res.message);
+      setLocalErr(res.message);
       setLoading(false);
       return;
     }
-
-    // Signed in — now check allowlist
-    const check = await checkAllowlist(res.user.email);
-
-    if (!check.allowed) {
-      // Log the access request so admin can see who wants in
-      await requestAccess(res.user);
-      await signOut();
-      setState(check.reason === "pending" ? "pending" : "denied");
-      setLoading(false);
-      return;
-    }
-
-    // Allowed — StudyApp's auth listener will move forward
+    // The rest — allowlist check, access request logging, sign-out if denied —
+    // is handled centrally in StudyApp's subscribeAuth handler.
     setLoading(false);
   };
+
+  // Show states based on store authStatus after sign-in attempt
+  const showPending = authStatus === "pending_approval";
+  const showDenied = authStatus === "denied";
 
   return (
     <div className="sp-auth">
@@ -50,7 +45,7 @@ export default function AuthGate() {
           <span>Skill Development Plan</span>
         </div>
 
-        {state === "idle" && (
+        {!showPending && !showDenied && (
           <>
             <h1 className="sp-auth-title">
               Sign in to <em>save your progress</em>
@@ -70,7 +65,7 @@ export default function AuthGate() {
               {loading ? "Signing in..." : "Continue with Google"}
             </button>
 
-            {err && <p className="sp-auth-err">{err}</p>}
+            {localErr && <p className="sp-auth-err">{localErr}</p>}
 
             <div className="sp-auth-note">
               <strong>Deploying to Vercel?</strong> Add <code>your-app.vercel.app</code> to
@@ -80,25 +75,26 @@ export default function AuthGate() {
           </>
         )}
 
-        {state === "pending" && (
+        {showPending && (
           <>
             <div className="sp-auth-state-icon" style={{ color: "var(--accent-2)" }}>⧗</div>
             <h1 className="sp-auth-title">Access <em>pending</em></h1>
             <p className="sp-auth-sub">
-              Your request has been logged. An admin will review and approve your account. Check back soon.
+              Your request has been logged. An admin will review and approve your account. You can try signing in again in a few minutes.
             </p>
-            <button className="sp-btn sp-btn-ghost" onClick={() => setState("idle")}>Back</button>
+            <button className="sp-btn sp-btn-ghost" onClick={() => setAuthStatus("idle")}>Back</button>
           </>
         )}
 
-        {state === "denied" && (
+        {showDenied && (
           <>
             <div className="sp-auth-state-icon" style={{ color: "var(--hard)" }}>✕</div>
             <h1 className="sp-auth-title">Access <em>denied</em></h1>
             <p className="sp-auth-sub">
-              Your email is not on the allowlist. We've logged your request — ask an admin to approve you.
+              Could not log your request. Firestore rules may be blocking the write.
+              {authError && <><br /><code style={{ color: "var(--hard)" }}>{authError}</code></>}
             </p>
-            <button className="sp-btn sp-btn-ghost" onClick={() => setState("idle")}>Back</button>
+            <button className="sp-btn sp-btn-ghost" onClick={() => setAuthStatus("idle")}>Back</button>
           </>
         )}
       </div>

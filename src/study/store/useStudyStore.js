@@ -4,7 +4,10 @@ const useStudyStore = create((set, get) => ({
   // Auth
   user: null,
   authLoading: true,
+  authStatus: "idle", // idle | pending_approval | denied | error
+  authError: "",
   setUser: (user) => set({ user, authLoading: false }),
+  setAuthStatus: (authStatus, authError = "") => set({ authStatus, authError }),
 
   // Progress (map problemId → { done, code: {lang: code}, notes })
   progress: {},

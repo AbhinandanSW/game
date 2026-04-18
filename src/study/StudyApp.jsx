@@ -9,6 +9,7 @@ import {
   upsertUserProfile,
   updateProgressSummary,
   signOut,
+  requestAccess,
 } from "../firebase";
 import { ALL_DSA } from "./data/dsa";
 import { JS_PROBLEMS } from "./data/jsProblems";
@@ -44,19 +45,38 @@ export default function StudyApp() {
   const route = useStudyStore((s) => s.route);
 
   // Auth subscription — check allowlist on every auth state change
+  // Handles: fresh sign-in, stale session (admin revoked), sign-out
   useEffect(() => {
+    const setAuthStatus = useStudyStore.getState().setAuthStatus;
     const unsub = subscribeAuth(async (u) => {
-      if (!u) { setUser(null); return; }
-      // Re-check allowlist — protects against stale sessions if admin revoked access
+      if (!u) {
+        setUser(null);
+        setAuthStatus("idle");
+        return;
+      }
+
+      // Allowlist check
       const check = await checkAllowlist(u.email);
+
       if (!check.allowed) {
-        await signOut();
+        // Log the access request BEFORE signing out, while the token is still valid
+        try {
+          await requestAccess(u);
+          setAuthStatus("pending_approval");
+        } catch (e) {
+          console.warn("requestAccess failed:", e);
+          setAuthStatus("denied", e?.message || "");
+        }
+        // Now sign out (user can't use the app)
+        try { await signOut(); } catch {}
         setUser(null);
         return;
       }
-      // Upsert profile for leaderboard visibility
-      await upsertUserProfile(u);
+
+      // Allowed — upsert profile + set user
+      try { await upsertUserProfile(u); } catch {}
       setUser(u);
+      setAuthStatus("idle");
     });
     return () => unsub && unsub();
   }, [setUser]);
