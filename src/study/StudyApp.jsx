@@ -17,6 +17,7 @@ import Nav from "./components/Nav";
 import Overview from "./components/Overview";
 import Leaderboard from "./components/Leaderboard";
 import Admin from "./components/Admin";
+import Behavioral from "./components/Behavioral";
 import DSA from "./components/DSA";
 import DSAProblem from "./components/DSAProblem";
 import SystemDesign from "./components/SystemDesign";
@@ -105,6 +106,7 @@ export default function StudyApp() {
         {route.section === "overview" && <Overview />}
         {route.section === "dashboard" && <Leaderboard />}
         {route.section === "admin" && <Admin />}
+        {route.section === "behavioral" && <Behavioral />}
         {route.section === "dsa" && !route.itemId && <DSA />}
         {route.section === "dsa" && route.itemId && <DSAProblem id={route.itemId} />}
         {route.section === "system-design" && !route.itemId && <SystemDesign />}

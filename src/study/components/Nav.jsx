@@ -11,6 +11,7 @@ const LINKS = [
   { id: "concepts", label: "Concepts" },
   { id: "plan", label: "30-Day Plan" },
   { id: "js-problems", label: "JS Problems" },
+  { id: "behavioral", label: "Behavioral" },
   { id: "resources", label: "Resources" },
   { id: "editor", label: "Editor" },
 ];

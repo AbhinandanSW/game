@@ -912,6 +912,78 @@ button { font-family: inherit; }
   color: var(--ink); white-space: nowrap; font-weight: 600;
 }
 
+/* ─── SDE Level Badges ────────────────────────────────────── */
+.sp-b-level-l1 { background: rgba(74,222,128,0.15); color: var(--easy); }
+.sp-b-level-l2 { background: rgba(78,205,196,0.15); color: var(--accent-3); }
+.sp-b-level-l3 { background: rgba(192,132,252,0.15); color: var(--accent-4); }
+
+/* ─── Behavioral ──────────────────────────────────────────── */
+.sp-bh-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) { .sp-bh-layout { grid-template-columns: 1fr; } }
+
+.sp-bh-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 600px; overflow-y: auto;
+}
+.sp-bh-list::-webkit-scrollbar { width: 6px; }
+.sp-bh-list::-webkit-scrollbar-thumb { background: var(--border-hot); border-radius: 3px; }
+.sp-bh-item {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 12px 14px;
+  cursor: pointer; transition: all 0.15s;
+}
+.sp-bh-item:hover { border-color: var(--border-hot); }
+.sp-bh-item.active {
+  border-color: var(--accent);
+  background: rgba(255,107,53,0.05);
+}
+.sp-bh-item-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px; flex-wrap: wrap;
+}
+.sp-bh-cat {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--ink-faint); letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.sp-bh-saved {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--accent-3); letter-spacing: 0.1em;
+  margin-left: auto;
+}
+.sp-bh-name {
+  font-size: 13px; font-weight: 600;
+  color: var(--ink); line-height: 1.3;
+}
+
+.sp-bh-detail {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 28px;
+  min-height: 500px;
+}
+.sp-bh-placeholder {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ink-faint);
+}
+.sp-bh-placeholder h3 {
+  font-family: var(--serif); font-size: 22px;
+  margin-bottom: 20px; color: var(--ink-dim);
+}
+.sp-bh-detail-head { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px dashed var(--border); }
+.sp-bh-detail-head h3 {
+  font-family: var(--serif); font-size: 24px;
+  letter-spacing: -0.02em; margin-top: 8px;
+}
+.sp-bh-meta {
+  display: flex; gap: 10px; align-items: center;
+}
+
 /* ─── Admin Panel ─────────────────────────────────────────── */
 .sp-admin-denied {
   background: var(--bg-card); border: 1px solid var(--border);
