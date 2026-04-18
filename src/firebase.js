@@ -1,6 +1,26 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, update, onValue, off } from "firebase/database";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut as fbSignOut,
+  onAuthStateChanged,
+} from "firebase/auth";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  collection,
+  onSnapshot,
+  serverTimestamp,
+  deleteDoc,
+} from "firebase/firestore";
 
+// NOTE: To enable Google Auth + Firestore, the Firebase console needs:
+//   - Authentication → Sign-in method → Google enabled
+//   - Firestore Database created (test/production mode)
 const firebaseConfig = {
   apiKey: "AIzaSyCN0wn2rwDc2GwNanZJrFQxEzPSvbcXFQs",
   authDomain: "testgame9328479.firebaseapp.com",
@@ -12,73 +32,113 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
-function safeKey(key) {
-  return key.replace(/[.#$[\]]/g, "_");
+// ─── Auth ──────────────────────────────────────────────────
+export async function signInWithGoogle() {
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
 }
 
-const storage = {
-  async get(key) {
-    try {
-      const snapshot = await get(ref(db, `rooms/${safeKey(key)}`));
-      if (snapshot.exists()) {
-        return { value: snapshot.val() };
-      }
-      return null;
-    } catch (e) {
-      console.warn("storage.get failed:", e);
-      return null;
-    }
-  },
+export async function signOut() {
+  await fbSignOut(auth);
+}
 
-  async set(key, value) {
-    try {
-      await set(ref(db, `rooms/${safeKey(key)}`), value);
-    } catch (e) {
-      console.warn("storage.set failed:", e);
-    }
-  },
+export function subscribeAuth(callback) {
+  return onAuthStateChanged(auth, callback);
+}
 
-  // Single batched write — only sync minimal player data
-  async syncAll(roomKey, playerId, playerData, shootEvents, scoreData) {
-    try {
-      const base = `rooms/${safeKey(roomKey)}`;
-      const updates = {};
-      updates[`${base}/gameData/players/${playerId}`] = playerData;
-      if (shootEvents && shootEvents.length > 0) {
-        updates[`${base}/shootEvents/${playerId}`] = shootEvents;
-      }
-      if (scoreData) {
-        updates[`${base}/scores/${playerId}`] = scoreData;
-      }
-      await update(ref(db), updates);
-    } catch (e) {
-      console.warn("storage.syncAll failed:", e);
-    }
-  },
+// ─── Progress ──────────────────────────────────────────────
+// Structure: users/{uid}/progress/{problemId} = { done: boolean, code: {lang: string}, notes: string }
+export async function setProgress(uid, problemId, data) {
+  try {
+    const ref = doc(db, "users", uid, "progress", problemId);
+    await setDoc(ref, { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (e) {
+    console.warn("setProgress failed:", e);
+  }
+}
 
-  // Subscribe to specific sub-paths for less data transfer
-  subscribePath(key, subPath, callback) {
-    const dbRef = ref(db, `rooms/${safeKey(key)}/${subPath}`);
-    onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.val());
-      }
-    });
-    return () => off(dbRef);
-  },
+export async function getProgress(uid, problemId) {
+  try {
+    const ref = doc(db, "users", uid, "progress", problemId);
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data() : null;
+  } catch (e) {
+    console.warn("getProgress failed:", e);
+    return null;
+  }
+}
 
-  // Full room subscribe (for lobby only)
-  subscribe(key, callback) {
-    const dbRef = ref(db, `rooms/${safeKey(key)}`);
-    onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.val());
-      }
-    });
-    return () => off(dbRef);
-  },
-};
+export function subscribeProgress(uid, callback) {
+  try {
+    const colRef = collection(db, "users", uid, "progress");
+    return onSnapshot(colRef, (snap) => {
+      const data = {};
+      snap.forEach((doc) => { data[doc.id] = doc.data(); });
+      callback(data);
+    }, (err) => console.warn("subscribeProgress error:", err));
+  } catch (e) {
+    console.warn("subscribeProgress failed:", e);
+    return () => {};
+  }
+}
 
-export default storage;
+// ─── Answers (for System Design, Concepts) ─────────────────
+export async function setAnswer(uid, itemId, answer) {
+  try {
+    const ref = doc(db, "users", uid, "answers", itemId);
+    await setDoc(ref, { text: answer, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (e) {
+    console.warn("setAnswer failed:", e);
+  }
+}
+
+export function subscribeAnswers(uid, callback) {
+  try {
+    const colRef = collection(db, "users", uid, "answers");
+    return onSnapshot(colRef, (snap) => {
+      const data = {};
+      snap.forEach((doc) => { data[doc.id] = doc.data(); });
+      callback(data);
+    }, (err) => console.warn("subscribeAnswers error:", err));
+  } catch (e) {
+    return () => {};
+  }
+}
+
+// ─── Custom Entries ────────────────────────────────────────
+export async function addEntry(uid, entry) {
+  const id = "entry_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+  try {
+    const ref = doc(db, "users", uid, "entries", id);
+    await setDoc(ref, { ...entry, id, createdAt: serverTimestamp() });
+    return id;
+  } catch (e) {
+    console.warn("addEntry failed:", e);
+  }
+}
+
+export async function deleteEntry(uid, id) {
+  try {
+    const ref = doc(db, "users", uid, "entries", id);
+    await deleteDoc(ref);
+  } catch (e) {
+    console.warn("deleteEntry failed:", e);
+  }
+}
+
+export function subscribeEntries(uid, callback) {
+  try {
+    const colRef = collection(db, "users", uid, "entries");
+    return onSnapshot(colRef, (snap) => {
+      const list = [];
+      snap.forEach((doc) => list.push(doc.data()));
+      callback(list);
+    }, (err) => console.warn("subscribeEntries error:", err));
+  } catch (e) {
+    return () => {};
+  }
+}

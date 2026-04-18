@@ -5,12 +5,12 @@
   "keywords": [],
   "main": "src/index.tsx",
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "ajv": "^8.18.0",
     "firebase": "^12.11.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-scripts": "^5.0.0",
-    "three": "^0.183.2",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 import "./styles.css";
-import FighterGame from "./game/FighterGame";
+import StudyApp from "./study/StudyApp";
 
 export default function App() {
-  return <FighterGame />;
+  return <StudyApp />;
 }
