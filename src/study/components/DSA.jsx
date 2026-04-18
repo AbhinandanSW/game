@@ -28,9 +28,17 @@ export default function DSA() {
   const filtered = useMemo(() => {
     let list = ALL_DSA;
 
-    if (track !== "all") {
-      if (track === "fullstack") list = list; // all
-      else list = list.filter((p) => p.track === track);
+    if (track === "fullstack" || track === "all") {
+      // show everything
+    } else if (track === "fe") {
+      // Frontend interviews = common + fe-specific problems
+      list = list.filter((p) => p.track === "common" || p.track === "fe");
+    } else if (track === "be") {
+      // Backend interviews = common + be-specific problems
+      list = list.filter((p) => p.track === "common" || p.track === "be");
+    } else if (track === "common") {
+      // Explicitly only the common set
+      list = list.filter((p) => p.track === "common");
     }
     if (diff !== "all") list = list.filter((p) => p.d === diff);
     if (level !== "all") list = list.filter((p) => p.level === level);
@@ -88,8 +96,14 @@ export default function DSA() {
       <div className="sp-filters">
         <div className="sp-filter-group">
           <span className="sp-filter-label">Role</span>
-          {[["all", "All"], ["common", "Common"], ["fe", "Frontend"], ["be", "Backend"], ["fullstack", "Fullstack"]].map(([v, l]) => (
-            <button key={v} className={`sp-chip ${track === v ? "active" : ""}`} onClick={() => setTrack(v)}>{l}</button>
+          {[
+            ["all", "All", "Every problem"],
+            ["common", "Common", "Problems asked in both FE and BE interviews"],
+            ["fe", "Frontend", "Common + FE-specific problems"],
+            ["be", "Backend", "Common + BE-specific (harder DPs, distributed)"],
+            ["fullstack", "Fullstack", "Everything — both worlds"],
+          ].map(([v, l, desc]) => (
+            <button key={v} className={`sp-chip ${track === v ? "active" : ""}`} onClick={() => setTrack(v)} title={desc}>{l}</button>
           ))}
         </div>
 
