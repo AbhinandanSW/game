@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import useStudyStore from "../store/useStudyStore";
-import { CONCEPTS_COMMON, CONCEPTS_FE, CONCEPTS_BE } from "../data/concepts";
+import { CONCEPTS_COMMON, CONCEPTS_FE, CONCEPTS_BE, CONCEPTS_ARCHITECTURE } from "../data/concepts";
 import { setAnswer } from "../../firebase";
 
-const ALL_CONCEPTS = [...CONCEPTS_COMMON, ...CONCEPTS_FE, ...CONCEPTS_BE];
+const ALL_CONCEPTS = [...CONCEPTS_COMMON, ...CONCEPTS_FE, ...CONCEPTS_BE, ...CONCEPTS_ARCHITECTURE];
 
 // Markdown-ish renderer with images, blockquotes, code fences, tables, lists
 function renderMD(md) {

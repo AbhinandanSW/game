@@ -6,6 +6,7 @@ import { setProgress } from "../../firebase";
 export default function DSA() {
   const [track, setTrack] = useState("all");
   const [diff, setDiff] = useState("all");
+  const [level, setLevel] = useState("all");
   const [search, setSearch] = useState("");
   const navigate = useStudyStore((s) => s.navigate);
   const progress = useStudyStore((s) => s.progress);
@@ -15,8 +16,20 @@ export default function DSA() {
 
   const filtered = useMemo(() => {
     let list = ALL_DSA;
-    if (track !== "all") list = list.filter((p) => p.track === track);
+    // Fullstack = union of common + fe + be
+    if (track === "fullstack") {
+      list = list; // everything
+    } else if (track !== "all") {
+      list = list.filter((p) => p.track === track);
+    }
     if (diff !== "all") list = list.filter((p) => p.d === diff);
+    if (level !== "all") {
+      // Map difficulty → level if no explicit level field
+      list = list.filter((p) => {
+        const l = p.level || (p.d === "Easy" ? "L1" : p.d === "Hard" ? "L3" : "L2");
+        return l === level;
+      });
+    }
     if (search) {
       const q = search.toLowerCase();
       list = list.filter((p) =>
@@ -26,7 +39,7 @@ export default function DSA() {
       );
     }
     return list;
-  }, [track, diff, search]);
+  }, [track, diff, level, search]);
 
   const toggleDone = async (p) => {
     const current = !!progress[p.id]?.done;
@@ -49,7 +62,7 @@ export default function DSA() {
       <div className="sp-filters">
         <div className="sp-filter-group">
           <span className="sp-filter-label">Track</span>
-          {[["all", "All"], ["common", "Common"], ["fe", "FE Only"], ["be", "BE Only"]].map(([v, l]) => (
+          {[["all", "All"], ["common", "Common"], ["fe", "Frontend"], ["be", "Backend"], ["fullstack", "Fullstack"]].map(([v, l]) => (
             <button key={v} className={`sp-chip ${track === v ? "active" : ""}`} onClick={() => setTrack(v)}>{l}</button>
           ))}
         </div>
@@ -57,6 +70,12 @@ export default function DSA() {
           <span className="sp-filter-label">Difficulty</span>
           {["all", "Easy", "Medium", "Hard"].map((v) => (
             <button key={v} className={`sp-chip ${diff === v ? "active" : ""}`} onClick={() => setDiff(v)}>{v === "all" ? "All" : v}</button>
+          ))}
+        </div>
+        <div className="sp-filter-group">
+          <span className="sp-filter-label">SDE Level</span>
+          {["all", "L1", "L2", "L3"].map((v) => (
+            <button key={v} className={`sp-chip ${level === v ? "active" : ""}`} onClick={() => setLevel(v)}>{v === "all" ? "All" : v}</button>
           ))}
         </div>
         <input

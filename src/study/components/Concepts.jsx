@@ -1,11 +1,16 @@
 import React from "react";
 import useStudyStore from "../store/useStudyStore";
-import { CONCEPTS_COMMON, CONCEPTS_FE, CONCEPTS_BE } from "../data/concepts";
+import { CONCEPTS_COMMON, CONCEPTS_FE, CONCEPTS_BE, CONCEPTS_ARCHITECTURE } from "../data/concepts";
 
 export default function Concepts() {
   const navigate = useStudyStore((s) => s.navigate);
 
   const groups = {};
+  CONCEPTS_ARCHITECTURE.forEach((c) => {
+    const k = `ARCHITECTURE · ${c.cat}`;
+    groups[k] = groups[k] || [];
+    groups[k].push(c);
+  });
   CONCEPTS_FE.forEach((c) => {
     const k = `FE · ${c.cat}`;
     groups[k] = groups[k] || [];
