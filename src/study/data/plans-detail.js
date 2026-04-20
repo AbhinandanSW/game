@@ -1481,7 +1481,7 @@ Tomorrow morning:
   },
 };
 
-// ─── BE Plan (similar format, condensed) ───
+// ─── BE Plan — full 30 days ───────────────────────────────
 export const BE_PLAN_DETAIL = {
   1: {
     fullTheory: `## Arrays & Hashing Mastery
@@ -1523,10 +1523,1337 @@ Sort Colors — i, j, k pointers.
       { lc: 238, n: "Product Except Self", diff: "Medium" },
     ],
     eveningSpec: "Solve 5 problems under 25 min each. Write approach first, then code.",
-    resources: [
-      { label: "NeetCode Arrays & Hashing", url: "https://neetcode.io/roadmap" },
-    ],
+    resources: [{ label: "NeetCode Arrays & Hashing", url: "https://neetcode.io/roadmap" }],
     successCriteria: ["5 problems solved in time", "Can recognize pattern within 2 min"],
   },
-  // Days 2-30 would follow same format. Condensed for brevity.
+  2: {
+    fullTheory: `## Strings & Pattern Matching
+
+### KMP (Knuth-Morris-Pratt)
+Preprocess pattern to avoid re-comparing matched prefixes.
+\`\`\`
+Build LPS (longest proper prefix = suffix) array.
+When mismatch, shift pattern using LPS instead of restarting.
+Complexity: O(n + m) vs naive O(n*m)
+\`\`\`
+
+### Rabin-Karp (rolling hash)
+\`\`\`
+hash(s[i..i+m]) computed from hash(s[i-1..i-1+m]) in O(1)
+Used: substring search, plagiarism detection
+\`\`\`
+
+### Z-algorithm
+Z[i] = length of longest substring starting at i that matches prefix.
+Used: fastest pattern matching for strings.
+
+### Trie
+Prefix tree. Insert/search/startsWith all O(word length).
+Used: autocomplete, spell check, word search, IP routing.
+
+### Expand Around Center (palindromes)
+For each index (and each gap), try to expand outward.
+
+### Anagram Grouping
+Sorted string as key. Or character count tuple as key.`,
+    problems: [
+      { lc: 5, n: "Longest Palindromic Substring", diff: "Medium" },
+      { lc: 49, n: "Group Anagrams", diff: "Medium" },
+      { lc: 76, n: "Min Window Substring", diff: "Hard" },
+      { lc: 647, n: "Palindromic Substrings", diff: "Medium" },
+      { lc: 28, n: "Find Index of First Occurrence (KMP)", diff: "Easy" },
+    ],
+    eveningSpec: `Implement KMP from scratch. Test against naive O(nm). Verify correctness + measure speed difference on long strings.`,
+    resources: [
+      { label: "CP Algorithms: KMP", url: "https://cp-algorithms.com/string/prefix-function.html" },
+      { label: "Z-algorithm explained", url: "https://cp-algorithms.com/string/z-function.html" },
+    ],
+    successCriteria: ["KMP implementation passes edge cases", "5 problems timed"],
+  },
+  3: {
+    fullTheory: `## Linked Lists & Stacks
+
+### Floyd's Cycle Detection (Tortoise & Hare)
+\`\`\`
+slow = fast = head
+while fast && fast.next:
+  slow = slow.next
+  fast = fast.next.next
+  if slow == fast: cycle
+\`\`\`
+To find cycle start: reset slow to head, advance both by 1 until they meet.
+
+### Reversal
+\`\`\`
+prev = null, curr = head
+while curr:
+  next = curr.next
+  curr.next = prev
+  prev = curr
+  curr = next
+return prev
+\`\`\`
+Variants: reverse in groups of K, reverse between positions m and n.
+
+### Monotonic Stack
+Stack where elements are always in increasing or decreasing order.
+Pop when new element breaks the invariant.
+Used: Next Greater Element, Largest Rectangle in Histogram, Daily Temperatures.
+
+### LRU Cache (classic design question)
+HashMap + Doubly Linked List:
+- HashMap: key → node (for O(1) access)
+- DLL: order by recency (head = most recent, tail = least)
+- On access: move to head. On put with capacity exceeded: remove tail.`,
+    problems: [
+      { lc: 206, n: "Reverse Linked List", diff: "Easy" },
+      { lc: 23, n: "Merge K Sorted Lists", diff: "Hard" },
+      { lc: 146, n: "LRU Cache", diff: "Medium" },
+      { lc: 739, n: "Daily Temperatures", diff: "Medium" },
+      { lc: 20, n: "Valid Parens", diff: "Easy" },
+    ],
+    eveningSpec: "Implement LRU Cache from scratch in your language. All operations O(1). Handle edge cases (capacity 0, single item).",
+    resources: [{ label: "LRU Cache detailed walkthrough", url: "https://leetcode.com/problems/lru-cache/solutions/" }],
+    successCriteria: ["LRU Cache O(1) get + put verified", "Understand why array-based LRU is O(n)"],
+  },
+  4: {
+    fullTheory: `## Trees (Binary & BST)
+
+### Traversals
+- **DFS**: preorder (root-left-right), inorder (left-root-right), postorder (left-right-root)
+- **BFS**: level by level (queue-based)
+- **Morris**: O(1) space inorder (threaded binary tree)
+
+### BST Properties
+- Inorder traversal gives sorted sequence
+- Search/Insert/Delete O(h) where h = height
+- Balanced: h = log n. Unbalanced: h = n (degenerate)
+
+### LCA (Lowest Common Ancestor)
+- BST: split based on values (both < root → left; both > root → right; else = LCA)
+- Binary Tree: recurse; if both subtrees find p or q, current node is LCA
+
+### Serialize/Deserialize
+- Preorder with null markers: "1,2,null,null,3,null,null"
+- Used in: distributed caches, network transmission
+
+### Diameter
+\`\`\`
+dfs(node):
+  left = dfs(node.left)
+  right = dfs(node.right)
+  global_max = max(global_max, left + right)
+  return 1 + max(left, right)
+\`\`\`
+
+### Max Path Sum
+Similar to diameter, but sums values. Reject negative paths.`,
+    problems: [
+      { lc: 102, n: "Level Order Traversal", diff: "Medium" },
+      { lc: 235, n: "LCA of BST", diff: "Medium" },
+      { lc: 297, n: "Serialize Deserialize BT", diff: "Hard" },
+      { lc: 98, n: "Validate BST", diff: "Medium" },
+      { lc: 124, n: "BT Max Path Sum", diff: "Hard" },
+    ],
+    eveningSpec: "Implement Serialize + Deserialize. Both round-trip correctly for all edge cases (null root, skewed tree, full tree).",
+    resources: [{ label: "Tree traversals", url: "https://en.wikipedia.org/wiki/Tree_traversal" }],
+    successCriteria: ["All 5 problems solved", "Can reconstruct any tree from preorder+inorder"],
+  },
+  5: {
+    fullTheory: `## Heaps & Priority Queues
+
+### Min-heap / Max-heap
+Complete binary tree. Parent ≤ children (min) or ≥ (max).
+Array representation: parent(i) = (i-1)/2, left(i) = 2i+1, right(i) = 2i+2.
+
+### Operations
+- peek: O(1)
+- push: O(log n) — sift up
+- pop: O(log n) — sift down after moving last to root
+- heapify (build from array): O(n) — sift down from bottom-up
+
+### Top-K Pattern
+Maintain heap of size K.
+- Top K largest → min-heap (evict smallest)
+- Top K smallest → max-heap (evict largest)
+
+### Two Heaps (Median from Stream)
+- Max-heap (lower half) + min-heap (upper half)
+- Balance: sizes differ by ≤ 1
+- Median: top of larger, or avg of tops if equal size
+
+### Merge K Sorted
+Min-heap of heads. Pop → add to result → push popped node's next.
+
+### Quickselect (alternative to heap for Top-K)
+Partition-based, O(n) avg, O(n²) worst. In-place.`,
+    problems: [
+      { lc: 215, n: "Kth Largest Element", diff: "Medium" },
+      { lc: 295, n: "Median from Data Stream", diff: "Hard" },
+      { lc: 23, n: "Merge K Sorted Lists", diff: "Hard" },
+      { lc: 347, n: "Top K Frequent", diff: "Medium" },
+      { lc: 973, n: "K Closest Points to Origin", diff: "Medium" },
+    ],
+    eveningSpec: "Implement Min-Heap class from scratch with push/pop/peek/heapify. Write unit tests. Compare with built-in priority queue.",
+    resources: [{ label: "Heap explained", url: "https://en.wikipedia.org/wiki/Binary_heap" }],
+    successCriteria: ["Custom heap passes tests", "Understand O(n) heapify proof"],
+  },
+  6: {
+    fullTheory: `## Graphs — Basics
+
+### Representations
+- **Adjacency list**: \`Map<Node, List<Node>>\` — space O(V+E), good for sparse
+- **Adjacency matrix**: 2D array — O(V²) space, O(1) edge check
+
+### BFS
+Queue. Level by level. Shortest path in unweighted graph.
+
+### DFS
+Stack or recursion. Explore deep before wide. Detect cycles, topological sort.
+
+### Topological Sort
+For DAGs only. Linear ordering where u → v implies u before v.
+- **Kahn's (BFS)**: repeatedly pull zero-indegree node
+- **DFS-based**: post-order reverse
+
+### Cycle Detection
+- Undirected: DFS + parent check
+- Directed: 3-color DFS (white/gray/black) — back edge to gray = cycle
+
+### Union-Find (Disjoint Set Union)
+- **find(x)**: walk parents to root. Path compression = O(α(n)) amortized
+- **union(x, y)**: link roots. Union by rank/size balances tree
+- Used: connected components, cycle detection in undirected graph, Kruskal's MST
+
+### Connected Components
+DFS or BFS from each unvisited node → count.`,
+    problems: [
+      { lc: 200, n: "Number of Islands", diff: "Medium" },
+      { lc: 207, n: "Course Schedule", diff: "Medium" },
+      { lc: 133, n: "Clone Graph", diff: "Medium" },
+      { lc: 417, n: "Pacific Atlantic Water Flow", diff: "Medium" },
+      { lc: 323, n: "Number of Connected Components", diff: "Medium" },
+      { lc: 261, n: "Graph Valid Tree", diff: "Medium" },
+    ],
+    eveningSpec: "Implement Union-Find with path compression + union by rank. Use it to detect cycle in undirected graph.",
+    resources: [
+      { label: "CP Algorithms: DSU", url: "https://cp-algorithms.com/data_structures/disjoint_set_union.html" },
+    ],
+    successCriteria: ["Union-Find optimized to near-O(1)", "6 problems solved"],
+  },
+  7: {
+    fullTheory: `## Graphs — Advanced
+
+### Dijkstra (shortest path, non-negative weights)
+\`\`\`
+dist[source] = 0, rest = ∞
+min-heap of (dist, node)
+while heap not empty:
+  d, u = heappop
+  if d > dist[u]: skip (stale)
+  for each edge (u, v, w):
+    if dist[u] + w < dist[v]:
+      dist[v] = dist[u] + w
+      heappush(dist[v], v)
+\`\`\`
+O((V+E) log V) with binary heap.
+
+### Bellman-Ford (handles negative weights)
+Relax every edge V-1 times. Detect negative cycle on Vth pass.
+O(VE).
+
+### Floyd-Warshall (all pairs shortest path)
+\`\`\`
+for k: for i: for j:
+  d[i][j] = min(d[i][j], d[i][k] + d[k][j])
+\`\`\`
+O(V³).
+
+### MST — Prim's
+Grow tree from a seed, always adding min-weight edge to tree.
+Min-heap of (edge-weight, node). O((V+E) log V).
+
+### MST — Kruskal's
+Sort edges by weight. Union-Find to avoid cycles. Take V-1 smallest.
+O(E log E).
+
+### SCC — Tarjan's / Kosaraju's
+Strongly connected components in directed graph.
+Tarjan: one DFS with low-link values.
+Kosaraju: two DFS passes (original + transpose).
+
+### A* (heuristic shortest path)
+Like Dijkstra but with heuristic. If heuristic is admissible (never overestimates), optimal.`,
+    problems: [
+      { lc: 743, n: "Network Delay Time", diff: "Medium" },
+      { lc: 787, n: "Cheapest Flights K Stops", diff: "Medium" },
+      { lc: 1584, n: "Min Cost to Connect All Points", diff: "Medium" },
+      { lc: 332, n: "Reconstruct Itinerary", diff: "Hard" },
+    ],
+    eveningSpec: "Implement Dijkstra from scratch. Test on a graph with 100+ nodes. Compare with BFS when weights are uniform.",
+    resources: [
+      { label: "CLRS Chapter 24-25", url: "https://mitpress.mit.edu/books/introduction-algorithms-third-edition" },
+    ],
+    successCriteria: ["Dijkstra handles edge cases (unreachable, disconnected)", "Know when to use each algorithm"],
+  },
+  8: {
+    fullTheory: `## Dynamic Programming I — 1D
+
+### When to Suspect DP
+- Optimization (max/min) or counting
+- Overlapping subproblems
+- Optimal substructure
+
+### Approach
+1. Define state (what does dp[i] mean?)
+2. Base case (dp[0] or dp[n])
+3. Transition (dp[i] from dp[i-1], dp[i-2], ...)
+4. Direction (bottom-up iterative, top-down memoized)
+
+### Fibonacci Pattern
+\`\`\`
+dp[i] = dp[i-1] + dp[i-2]  // Climbing Stairs, House Robber
+\`\`\`
+
+### Coin Change (unbounded knapsack)
+\`\`\`
+dp[amount] = min(dp[amount - coin] + 1) for each coin
+\`\`\`
+
+### 0/1 Knapsack
+2D: dp[i][w] = max value using first i items within weight w.
+\`\`\`
+dp[i][w] = max(dp[i-1][w], dp[i-1][w - wi] + vi) if wi <= w
+         = dp[i-1][w] otherwise
+\`\`\`
+
+### LIS (Longest Increasing Subsequence)
+O(n²) DP or O(n log n) patience sorting (binary search).
+
+### Partition / Subset Sum
+Can we sum to k? → DP on (index, remaining sum).
+
+### Space Optimization
+Most 1D DP can use 2 variables instead of full array.`,
+    problems: [
+      { lc: 70, n: "Climbing Stairs", diff: "Easy" },
+      { lc: 198, n: "House Robber", diff: "Medium" },
+      { lc: 322, n: "Coin Change", diff: "Medium" },
+      { lc: 300, n: "LIS", diff: "Medium" },
+      { lc: 416, n: "Partition Equal Subset Sum", diff: "Medium" },
+    ],
+    eveningSpec: `Solve 5 classic 1D DP problems. For each: write recurrence, identify states, trace small example by hand before coding.`,
+    resources: [
+      { label: "Aditya Verma DP series", url: "https://www.youtube.com/playlist?list=PL_z_8CaSLPWekqhdCPmFohncHwz8TY2Go" },
+    ],
+    successCriteria: ["Write recurrence for each problem before coding", "5 problems solved"],
+  },
+  9: {
+    fullTheory: `## Dynamic Programming II — 2D & Advanced
+
+### Grid DP
+Unique Paths, Min Path Sum — \`dp[i][j] = f(dp[i-1][j], dp[i][j-1])\`.
+
+### Edit Distance
+\`\`\`
+if s1[i] == s2[j]: dp[i][j] = dp[i-1][j-1]
+else: dp[i][j] = 1 + min(insert, delete, replace)
+\`\`\`
+
+### LCS (Longest Common Subsequence)
+\`\`\`
+if s1[i] == s2[j]: dp[i][j] = dp[i-1][j-1] + 1
+else: dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+\`\`\`
+
+### Word Break
+\`\`\`
+dp[i] = true if exists j where dp[j] is true AND s[j..i] in dict
+\`\`\`
+
+### Interval DP (Burst Balloons)
+Think last action. \`dp[l][r]\` = optimal in subrange.
+Order: length 2, 3, ... n.
+
+### Bitmask DP (Traveling Salesman)
+State = (bitmask of visited, current node). Only works for n ≤ 20.
+
+### DP on Trees
+Recurse children first, combine. E.g., House Robber III.
+
+### DP + Other Data Structures
+Monotonic deque + DP = O(n) for some problems.`,
+    problems: [
+      { lc: 62, n: "Unique Paths", diff: "Medium" },
+      { lc: 72, n: "Edit Distance", diff: "Hard" },
+      { lc: 1143, n: "LCS", diff: "Medium" },
+      { lc: 312, n: "Burst Balloons", diff: "Hard" },
+      { lc: 139, n: "Word Break", diff: "Medium" },
+    ],
+    eveningSpec: "Solve Edit Distance by hand on paper for small inputs. Then implement. Compare top-down vs bottom-up.",
+    resources: [{ label: "Errichto DP", url: "https://www.youtube.com/c/Errichto" }],
+    successCriteria: ["Can explain state + transition for each 2D problem"],
+  },
+  10: {
+    fullTheory: `## Backtracking & Greedy
+
+### Backtracking Template
+\`\`\`
+def backtrack(partial, choices):
+  if is_solution(partial):
+    result.append(partial.copy())
+    return
+  for choice in choices:
+    if is_valid(partial, choice):
+      partial.append(choice)
+      backtrack(partial, narrowed_choices)
+      partial.pop()  # undo
+\`\`\`
+
+### Pruning
+- Sort input to skip duplicates
+- Early termination on invalid states
+- Memoization for overlapping subproblems
+
+### Greedy Intervals
+Sort by end time. Take earliest-ending non-conflicting.
+Problems: Meeting Rooms, Non-overlapping Intervals, Minimum Arrows.
+
+### Huffman Coding
+Greedy: merge two smallest weights repeatedly. Optimal prefix code.
+
+### Task Scheduler
+Spread most-frequent tasks with gaps.
+\`\`\`
+max_freq = max(counts)
+result = (max_freq - 1) * (n + 1) + count_with_max
+\`\`\`
+
+### Gas Station
+Start from any station where cumulative gas never goes negative.`,
+    problems: [
+      { lc: 51, n: "N-Queens", diff: "Hard" },
+      { lc: 39, n: "Combination Sum", diff: "Medium" },
+      { lc: 79, n: "Word Search", diff: "Medium" },
+      { lc: 56, n: "Merge Intervals", diff: "Medium" },
+      { lc: 55, n: "Jump Game", diff: "Medium" },
+      { lc: 621, n: "Task Scheduler", diff: "Medium" },
+    ],
+    eveningSpec: "Implement N-Queens. Use bitmask for O(1) column/diagonal checks.",
+    resources: [],
+    successCriteria: ["N-Queens solves n=12 in < 1 sec", "Recognize greedy vs DP trade-off"],
+  },
+
+  // ─── Phase 2: System Design ──────────────────────────────
+  11: {
+    fullTheory: `## System Design Fundamentals
+
+### CAP Theorem
+In partition, choose Consistency or Availability. P is mandatory (partitions happen).
+- **CP**: RDBMS, MongoDB (w=majority), HBase. Block on partition.
+- **AP**: Cassandra, DynamoDB, CouchDB. Accept writes on both sides, reconcile.
+
+### ACID vs BASE
+- **ACID** (RDBMS): Atomicity, Consistency, Isolation, Durability
+- **BASE** (NoSQL): Basically Available, Soft-state, Eventually consistent
+
+### Scaling
+- **Vertical** — bigger box. Easy but has ceiling.
+- **Horizontal** — more boxes. Needs shard key, consistent hashing.
+
+### Load Balancer
+- **L4** (TCP) — fast, no app knowledge. AWS NLB.
+- **L7** (HTTP) — path/header routing. NGINX, Envoy, ALB.
+- Algorithms: Round Robin, Least Connections, IP Hash, Weighted.
+
+### CDN
+Edge caches static + cacheable dynamic content. Cloudflare, Fastly, CloudFront.
+Pop close to user → low latency.
+
+### DNS
+Domain → IP. TTL controls cache. Round-robin DNS for simple load balancing.
+
+### Key Design Questions to Ask
+1. Functional requirements
+2. Non-functional (QPS, latency, storage, availability)
+3. Scale estimates (back-of-envelope math)
+4. Core objects + APIs
+5. Data model
+6. Architecture
+7. Deep dive on 1-2 components
+8. Bottlenecks + trade-offs`,
+    problems: [],
+    eveningSpec: "Draw architecture diagrams for: CAP, load balancing, CDN flow. Explain each aloud as if teaching.",
+    resources: [
+      { label: "DDIA — Martin Kleppmann", url: "https://www.amazon.com/Designing-Data-Intensive-Applications-Reliable-Maintainable/dp/1449373321" },
+      { label: "Gaurav Sen YT", url: "https://www.youtube.com/c/GauravSen" },
+    ],
+    successCriteria: ["Explain CAP with concrete examples", "Estimate QPS for 100M DAU app"],
+  },
+  12: {
+    fullTheory: `## Database Design
+
+### SQL vs NoSQL Decision Matrix
+| | SQL | NoSQL |
+|---|---|---|
+| Schema | Strict | Flexible |
+| Joins | First-class | Application-level |
+| Transactions | ACID | Varies (usually eventual) |
+| Scale | Vertical, some sharding | Horizontal-first |
+| Use case | Core transactions | Large volume, specific patterns |
+
+### Sharding
+Partition by key across nodes. Strategies:
+- **Range-based** — hotspots risk
+- **Hash-based** — even distribution but resharding nightmare
+- **Consistent hashing** — add/remove nodes with minimal rebalance
+
+### Replication
+- **Master-slave** — reads from slaves, writes to master
+- **Master-master** — write to any, conflict resolution
+- **Sync vs async** — durability vs latency trade-off
+
+### Indexing
+- **B-tree** — default, range queries, most use cases
+- **LSM tree** — Cassandra, RocksDB. Write-optimized, batch flushes.
+- **Hash** — O(1) equality only
+- **Composite** — careful order (leftmost prefix rule)
+
+### Connection Pooling
+HikariCP, PgBouncer. Pool size heuristic: (cores × 2) + spindles.
+
+### Query Optimization
+- EXPLAIN ANALYZE
+- Avoid N+1 (use JOINs or DataLoader)
+- Covering indexes
+- Denormalize for read-heavy hot paths`,
+    problems: [],
+    eveningSpec: `Design DB schema for e-commerce (users, products, orders, reviews). Decide sharding strategy for user data at 100M users.`,
+    resources: [
+      { label: "Use the Index Luke", url: "https://use-the-index-luke.com/" },
+    ],
+    successCriteria: ["Can explain B-tree vs LSM", "Shard e-commerce schema with clear rationale"],
+  },
+  13: {
+    fullTheory: `## Caching & Messaging
+
+### Caching Strategies
+- **Cache-aside** — app reads/writes both. Most common.
+- **Read-through** — cache fetches on miss (DAX).
+- **Write-through** — sync write to cache + DB.
+- **Write-behind** — async flush (Redis AOF patterns).
+- **Refresh-ahead** — pre-refresh hot keys.
+
+### Eviction
+- **LRU** — default, recency-based
+- **LFU** — frequency-based, better for long-tail
+- **TTL** — time-based
+- **Random** — surprisingly OK
+
+### Cache Stampede
+Hot key expires → concurrent DB hits.
+- **Single-flight** — only one request populates
+- **Probabilistic refresh** — refresh before expiry with small probability
+- **Stale-while-revalidate** — return stale, refresh async
+
+### Kafka
+Distributed log — append-only, replicated, partitioned.
+- Broker, Topic, Partition, Consumer Group
+- Ordering within partition only
+- Exactly-once via idempotent producer + transactions
+
+### RabbitMQ
+Queue-based. Push-to-consumer. Routing via exchanges.
+Better for: task queues, RPC, complex routing.
+
+### When to Use Kafka vs RabbitMQ
+- Kafka: high throughput, event streaming, replay, many consumers
+- RabbitMQ: task distribution, priority queues, complex routing`,
+    problems: [],
+    eveningSpec: "Design caching layer for Twitter feed (write fanout + hot user problem). Design event pipeline for order processing.",
+    resources: [
+      { label: "Kafka docs", url: "https://kafka.apache.org/documentation/" },
+    ],
+    successCriteria: ["Explain cache stampede + solutions", "Choose Kafka vs RabbitMQ with reasoning"],
+  },
+  14: {
+    fullTheory: `## API Design & Microservices
+
+### REST Principles
+- Resources as nouns (/users, /orders)
+- HTTP methods as verbs (GET/POST/PUT/DELETE)
+- Status codes meaningful
+- Stateless
+- HATEOAS optional
+
+### gRPC
+HTTP/2 + Protocol Buffers. Binary, typed. Good for internal services.
+
+### GraphQL
+Client queries exact shape. Solves over/under-fetching. Beware N+1.
+
+### API Gateway
+Entry point for microservices. Handles: auth, rate limit, routing, logging, circuit breaking.
+Kong, Envoy, NGINX, AWS API Gateway.
+
+### Service Discovery
+How do services find each other?
+- Client-side (Eureka)
+- Server-side (Consul)
+- DNS-based (K8s services)
+
+### Saga Pattern
+Long-running distributed transactions via compensating actions.
+- Choreography — services publish events
+- Orchestration — central coordinator
+
+### CQRS
+Split read + write models. Writes → event log. Reads → projections optimized per query.
+
+### Idempotency
+Every mutation accepts \`Idempotency-Key\`. Retry-safe.
+
+### Rate Limiting
+- Token bucket (Stripe, AWS)
+- Sliding window (accurate but memory-heavy)
+- Fixed window counter (simple)`,
+    problems: [],
+    eveningSpec: "Design rate limiter service. Design API gateway for 10 microservices. Design payment service with idempotency + saga.",
+    resources: [{ label: "API design patterns", url: "https://cloud.google.com/apis/design" }],
+    successCriteria: ["Rate limiter design with Redis Lua script", "Saga pattern explained with refund example"],
+  },
+  15: {
+    fullTheory: `## URL Shortener + Pastebin
+
+### Requirements (TinyURL)
+- Shorten long URL → short alias
+- Redirect on access
+- Analytics (optional)
+- Custom aliases (optional)
+- Expiration (optional)
+
+### Estimates
+- 100M URLs/month = 1.2B/year = 6B/5yr
+- Storage: 500B/URL × 6B = 3TB metadata, 60TB with analytics
+- Read:Write = 100:1 (redirect is read)
+
+### Key Generation Approaches
+1. **Auto-increment + Base62** — simple, sequential, enumerable
+2. **Hash (MD5/SHA) + truncate** — collisions need retry
+3. **Pre-generated pool** — separate service, O(1) allocation
+
+Base62 over 7 chars = 62^7 = 3.5T possibilities.
+
+### Architecture
+- App servers (stateless)
+- Key gen service (if pool-based)
+- DB: NoSQL (KV store) — DynamoDB, Cassandra
+- Cache: Redis for hot URLs
+- CDN: serve 301 redirects from edge
+- Analytics: Kafka → ClickHouse
+
+### DB Schema
+\`\`\`
+urls {
+  short_code (PK)
+  long_url
+  user_id
+  created_at
+  expires_at
+  click_count  // denormalized
+}
+\`\`\`
+
+### Scaling
+- Shard by short_code hash
+- 80/20 rule — 20% of URLs get 80% of traffic → cache them
+- Multi-region with geo-DNS`,
+    problems: [],
+    eveningSpec: "Design TinyURL with analytics + custom alias. Write API spec, data model, scale math, estimated costs.",
+    resources: [{ label: "TinyURL design", url: "https://github.com/donnemartin/system-design-primer" }],
+    successCriteria: ["60TB calculation reasoned", "Base62 vs hash trade-off explained"],
+  },
+  16: {
+    fullTheory: `## Chat + Notification System
+
+### WhatsApp-like Chat
+**Requirements:**
+- 1:1 and group messaging
+- Delivery receipts, read receipts
+- Online presence
+- Media (images, video, docs)
+- E2E encryption
+
+**Architecture:**
+- Clients connect via WebSocket to Chat Server
+- Chat Server → Kafka → storage + fanout
+- Cassandra/HBase for messages (high write)
+- Redis for presence (short TTL)
+- S3 + CDN for media
+- Push (FCM/APNs) for offline
+
+**Message Flow:**
+1. User A sends msg via WS
+2. Server persists to Cassandra (partition by chatId)
+3. Publishes event to Kafka
+4. If User B online on another server → deliver via WS
+5. If offline → FCM/APNs
+
+**Key Decisions:**
+- Fanout at read vs write (for groups)
+- Message ordering: Lamport timestamps per chat
+- E2E: Signal protocol (double ratchet)
+
+### Notification Service
+**Channels:** push, email, SMS, in-app.
+**Components:**
+- API (template + payload)
+- Priority queue (critical vs promo)
+- Channel workers (push, email, SMS)
+- Template engine
+- Delivery tracker
+- Rate limiter (per user, per channel)
+
+**Scale:**
+- 1B/day = ~11K/sec avg, ~100K/sec peak
+- Idempotency keys prevent duplicate sends
+- FCM rate limits → shard across projects`,
+    problems: [],
+    eveningSpec: "Full design docs: Chat (100M users), Notification (multi-channel, 1B/day).",
+    resources: [],
+    successCriteria: ["Chat design handles offline users + groups", "Notification design has priority + rate limits"],
+  },
+  17: {
+    fullTheory: `## Feed + Search System
+
+### Twitter/Instagram Feed
+**Fanout Strategy (big decision):**
+- **Fanout on write** — precompute each follower's timeline. Fast reads, expensive writes. Fails for celebrities (100M followers).
+- **Fanout on read** — compute timeline on demand. Slow reads, cheap writes. Fails for active users.
+- **Hybrid** — fanout-write for normal users; fanout-read for celebrity posts (merged in).
+
+**Components:**
+- Tweet Service
+- Fanout Service (consumer of tweet events)
+- Timeline Cache (Redis sorted sets per user)
+- Celebrity posts in separate stream, merged at read time
+- Search via Elasticsearch (async-indexed)
+
+**Estimates:**
+- 500M users, 200M DAU
+- 100 tweets per user avg → 20B tweets/day
+- Timeline read: 200M × few/day = billions of reads
+
+### Search / Typeahead
+**Inverted index**: term → [document IDs]
+**Ranking**: BM25 (tf-idf variant) + freshness + user signals
+
+**Autocomplete:**
+- Trie of popular queries
+- Frequency-weighted
+- Personalized via user history
+- Aho-Corasick for multi-pattern matching
+
+**Sharding:**
+- Search: shard by term hash or by document (scatter-gather)
+- Autocomplete: trie partitioned by prefix`,
+    problems: [],
+    eveningSpec: "Design Twitter feed. Design autocomplete for e-commerce search.",
+    resources: [],
+    successCriteria: ["Hybrid fanout reasoning clear", "Trie-based autocomplete implemented"],
+  },
+  18: {
+    fullTheory: `## Payment + Booking
+
+### Razorpay/Stripe Payment Gateway
+**Invariant:** NEVER double-charge. Always reconcile.
+
+**Architecture:**
+- API Gateway (idempotency check)
+- Payment Orchestrator (Saga coordinator)
+- Provider adapters (card, UPI, wallet) with circuit breakers
+- Ledger Service (double-entry bookkeeping)
+- Reconciliation (daily match with bank)
+- Fraud detection (ML + rules)
+
+**Double-Entry Ledger:**
+Every transaction = equal debit + credit. Balances always sum to zero.
+\`\`\`
+user "pays" merchant $100
+  debit user_account $100
+  credit merchant_account $100
+\`\`\`
+
+**Saga for Refund:**
+1. Payment.refund
+2. Update ledger
+3. Notify provider
+4. Notify merchant
+5. Notify user
+Any failure → compensation chain.
+
+### BookMyShow Ticket Booking
+**Core:** Seat must be held atomically while user pays.
+
+**Approaches:**
+- **Redis distributed lock** with 5-min TTL
+- **Optimistic locking** — UPDATE WHERE status='available'
+- **Pessimistic locking** — SELECT FOR UPDATE
+
+**Flow:**
+1. Pick seat → Redis SET NX EX 300 (5 min hold)
+2. Pay
+3. On success → write to DB, release hold
+4. On timeout → auto-release
+
+**Burst handling:**
+- Virtual queue (waiting room) for hot events
+- WebSocket for real-time seat updates
+- Read-only fallback if DB overwhelmed`,
+    problems: [],
+    eveningSpec: "Design Razorpay payment gateway. Design BookMyShow for movie release concurrency.",
+    resources: [],
+    successCriteria: ["Idempotency + saga + ledger all explained", "Concurrent seat booking solved"],
+  },
+
+  // ─── Phase 3: Machine Coding ──────────────────────────
+  19: {
+    fullTheory: `## OOP & Design Patterns
+
+### SOLID
+- **S**: Single Responsibility
+- **O**: Open/Closed
+- **L**: Liskov Substitution
+- **I**: Interface Segregation
+- **D**: Dependency Inversion
+
+### Core Patterns
+**Creational:**
+- Factory — object creation without new
+- Builder — step-by-step construction
+- Singleton — one instance
+- Prototype — clone existing
+
+**Structural:**
+- Adapter — translate interfaces
+- Decorator — wrap with behavior
+- Facade — simplify complex subsystem
+- Proxy — surrogate access
+
+**Behavioral:**
+- Strategy — interchangeable algorithms
+- Observer — pub/sub
+- Command — encapsulate request as object
+- State — behavior per state
+- Template Method — skeleton with hook methods
+- Chain of Responsibility — handler chain
+
+### When to Use Which
+- Pluggable algorithms → Strategy
+- Event-driven → Observer
+- Object creation flexibility → Factory
+- State machines → State pattern
+- Async workflows → Command`,
+    problems: [],
+    eveningSpec: "Implement pluggable notification system using Strategy + Factory. Add 3 channels (email, SMS, push) without modifying existing code.",
+    resources: [
+      { label: "Refactoring Guru", url: "https://refactoring.guru/design-patterns" },
+    ],
+    successCriteria: ["Notification system works + extensible", "Can name + explain each pattern"],
+  },
+  20: {
+    fullTheory: `## Parking Lot
+
+### Requirements
+- Multi-floor, multi-spot-type
+- Vehicle types: Bike, Car, Truck
+- Entry/Exit with ticket
+- Pricing by duration + type
+- Nearest-spot allocation
+- Availability query
+
+### Class Design
+\`\`\`
+ParkingLot (Singleton)
+├── floors: List<Floor>
+├── pricingStrategy: PricingStrategy
+├── park(vehicle) → Ticket
+├── exit(ticketId) → Receipt
+
+Floor
+├── spots: List<Spot>
+├── getAvailable(type) → Spot
+
+Spot
+├── id, type, isOccupied, currentVehicle
+
+Vehicle (abstract) → Bike, Car, Truck
+  ├── licensePlate, type, requiredSpotType
+
+Ticket
+├── id, spotId, entryTime, vehicleId
+
+PricingStrategy (interface)
+├── HourlyPricing, DayPricing, FlatPricing
+\`\`\`
+
+### Patterns Used
+- **Singleton**: ParkingLot
+- **Factory**: Vehicle creation
+- **Strategy**: Pricing swappable
+- **Observer**: Notify display boards on spot state change`,
+    problems: [],
+    eveningSpec: "Full implementation. Include: park(), exit(), fee calculation, availability. Tests for edge cases (full lot, invalid ticket).",
+    resources: [],
+    successCriteria: ["Tests pass for all operations", "Adding new vehicle type requires no mods to ParkingLot"],
+  },
+  21: {
+    fullTheory: `## Splitwise
+
+### Requirements
+- Users, Groups, Expenses
+- Split types: Equal, Exact, Percentage, Shares
+- Track who owes whom
+- Debt simplification (minimize transactions)
+- Activity feed
+
+### Class Design
+\`\`\`
+User (id, name, email)
+Group (id, name, members, expenses)
+Expense (id, amount, paidBy, splits, timestamp)
+Split (userId, amount)
+SplitStrategy (interface)
+  → EqualSplit, ExactSplit, PercentageSplit, ShareSplit
+BalanceManager
+  └── balances: Map<UserId, Map<UserId, amount>>
+DebtSimplifier
+  └── simplify() → graph algorithm
+\`\`\`
+
+### Debt Simplification (the interesting part)
+Graph: users = nodes, debts = edges.
+Algorithm: for each user, compute net balance (credits - debits).
+Pair positive with negative balances → fewer transactions.
+
+Example: A owes B $10, B owes C $5 → A owes B $5, A owes C $5 (same 2 txns).
+But A owes B $10, B owes A $5 → net: A owes B $5 (1 txn instead of 2).`,
+    problems: [],
+    eveningSpec: "Build expense tracker. Implement all 4 split strategies. Implement debt simplification with tests showing reduced transaction count.",
+    resources: [],
+    successCriteria: ["All splits mathematically correct", "Debt simplification reduces txns in test cases"],
+  },
+  22: {
+    fullTheory: `## In-Memory DB / Cache (Redis-like)
+
+### Requirements
+- GET, SET, DEL
+- TTL / EXPIRE
+- LRU / LFU eviction
+- Pub/Sub
+- Persistence (RDB snapshots + AOF)
+- Thread-safe
+
+### LRU Implementation
+HashMap + Doubly Linked List.
+- HashMap: key → DLL node (O(1) lookup)
+- DLL: order by recency (head = most recent)
+- get(k): move node to head
+- put(k, v): add at head; if over capacity, remove tail
+
+### TTL
+Two approaches:
+- **Lazy expiry**: check TTL on access, delete if expired
+- **Active expiry**: background thread scans random keys
+
+Redis does both.
+
+### Pub/Sub
+Simple: Map<channel, Set<subscriber>>. On publish, iterate subs.
+
+### Persistence
+- **RDB**: snapshot every N seconds (Brick compaction pattern)
+- **AOF**: append every write to log file (replay on restart)
+
+### Thread Safety
+Redis is single-threaded (avoids locks). For our implementation: use synchronized or ReentrantLock. Better: fine-grained locks per key bucket.`,
+    problems: [],
+    eveningSpec: "Build key-value store with GET/SET/DEL/EXPIRE + LRU + pub/sub. Thread-safe. Benchmark against HashMap.",
+    resources: [],
+    successCriteria: ["1M ops/sec on single thread", "All operations O(1)"],
+  },
+  23: {
+    fullTheory: `## Task/Job Scheduler
+
+### Requirements
+- Submit jobs
+- Priority queue
+- Cron scheduling
+- Retry with exponential backoff
+- Dead letter queue (DLQ)
+- Concurrency control
+
+### Class Design
+\`\`\`
+JobScheduler
+├── priorityQueue: PriorityQueue<Job>
+├── workers: ThreadPool
+├── submit(Job): JobId
+├── cancel(jobId)
+
+Job (abstract)
+├── id, priority, retriesLeft, maxRetries, backoffMs
+├── execute()
+├── onSuccess(), onFailure()
+
+CronJob extends Job
+├── cronExpression
+├── nextFireTime()
+
+RetryPolicy (Strategy)
+├── ExponentialBackoff, FixedDelay, Custom
+
+DeadLetterQueue
+└── Persists failed jobs for manual inspection
+\`\`\`
+
+### Concurrency
+- Main thread pulls from PQ → submits to worker pool
+- Worker pool executes
+- On failure → reschedule with backoff OR move to DLQ
+
+### Cron Parsing
+Use library (quartz, cron-parser). Don't build from scratch unless you enjoy regex.`,
+    problems: [],
+    eveningSpec: "Full scheduler with priority, retries, DLQ. Test: submit 1000 jobs with mix of priorities, some failing. Verify all either succeed or end up in DLQ.",
+    resources: [],
+    successCriteria: ["Jobs execute in priority order", "Retries follow backoff"],
+  },
+  24: {
+    fullTheory: `## Rate Limiter
+
+### Algorithms
+
+**Token Bucket**
+- Bucket holds N tokens, refilled R tokens/sec
+- Each request takes 1 token
+- Allows bursts up to N
+- Used: Stripe, AWS API
+
+**Leaky Bucket**
+- Fixed outflow rate
+- Excess queued (or dropped)
+- Smoothes traffic
+
+**Fixed Window Counter**
+- Count requests per time window (e.g., per minute)
+- Simple but has burst-at-boundary problem (2x limit possible)
+
+**Sliding Window Log**
+- Store timestamp of every request
+- Count timestamps within window
+- Accurate but memory-heavy
+
+**Sliding Window Counter**
+- Weighted avg of current + previous window
+- Good balance of accuracy + memory
+
+### Distributed Rate Limiting
+Challenge: multiple servers, shared limit.
+- Redis with Lua script (atomic INCR + EXPIRE)
+- Or: local approximate + periodic sync`,
+    problems: [],
+    eveningSpec: "Implement all 4 algorithms. Configurable per user/endpoint. Tests verify correctness at boundary conditions.",
+    resources: [],
+    successCriteria: ["All 4 algorithms work", "Can choose right one per use case"],
+  },
+  25: {
+    fullTheory: `## Elevator / Snake & Ladder
+
+### Elevator System
+**Requirements:**
+- N elevators, M floors
+- Internal button (from inside)
+- External up/down button (from floor)
+- Efficient scheduling
+
+**Scheduling Algorithms:**
+- **FCFS** — first come first served. Inefficient.
+- **SCAN** — one direction until no more, reverse. Like an elevator in real life.
+- **LOOK** — SCAN but reverse as soon as no more in direction.
+
+**Class Design:**
+\`\`\`
+ElevatorSystem
+├── elevators: List<Elevator>
+├── assign(request) → Elevator (choose best)
+
+Elevator
+├── currentFloor, direction, requests: TreeSet<Integer>
+├── addRequest(floor)
+├── tick() — move one floor
+\`\`\`
+
+### Snake & Ladder
+**Requirements:**
+- NxN board with snakes (go down) and ladders (go up)
+- Multiple players
+- Configurable dice
+- Win detection
+- Turn management
+
+**Class Design:**
+\`\`\`
+Game
+├── board: Board
+├── players: Queue<Player>
+├── dice: Dice
+├── play() until winner
+
+Board
+├── size
+├── snakes: Map<Integer, Integer>  // head → tail
+├── ladders: Map<Integer, Integer>  // bottom → top
+├── nextPosition(from, roll) → int
+
+Player
+├── id, position
+\`\`\``,
+    problems: [],
+    eveningSpec: "Implement one (Elevator OR Snake & Ladder). Full test coverage.",
+    resources: [],
+    successCriteria: ["Elevator picks best car for request", "S&L handles snake/ladder on winning square"],
+  },
+
+  // ─── Phase 4: Deep Dive & Mocks ──────────────────────
+  26: {
+    fullTheory: `## Concurrency & Multithreading
+
+### Thread Pool Pattern
+Bounded workers + queue. Prevents unbounded thread creation.
+
+\`\`\`
+ExecutorService pool = Executors.newFixedThreadPool(10);
+pool.submit(() -> doWork());
+pool.shutdown();
+\`\`\`
+
+### Locks
+- **Mutex** — mutual exclusion (synchronized in Java)
+- **ReadWriteLock** — multiple readers OR one writer
+- **Semaphore** — limit concurrent access (e.g., connection pool)
+- **CountDownLatch** — wait for N events
+- **CyclicBarrier** — reusable barrier
+- **Atomic classes** — lock-free via CAS
+
+### Common Pitfalls
+- **Deadlock** — inconsistent lock ordering. Fix: always acquire in same order.
+- **Race condition** — TOCTOU (time-of-check vs time-of-use)
+- **Starvation** — thread never gets resource
+- **Livelock** — threads keep retrying without progress
+
+### Producer-Consumer
+BlockingQueue handles it.
+- LinkedBlockingQueue (unbounded)
+- ArrayBlockingQueue (bounded)
+
+### Virtual Threads (Java 21+)
+JVM-scheduled, millions feasible. Replaces traditional thread pools for I/O-bound work.
+
+### Go Concurrency Model (CSP)
+Channels for communication, goroutines for concurrency.
+\`\`\`go
+ch := make(chan int)
+go func() { ch <- 42 }()
+v := <-ch
+\`\`\``,
+    problems: [],
+    eveningSpec: `Implement:
+1. Thread-safe bounded queue (blocking on full/empty)
+2. Producer-consumer with 3 producers + 2 consumers
+3. Dining Philosophers (deadlock-free)`,
+    resources: [{ label: "Java Concurrency in Practice", url: "https://jcip.net/" }],
+    successCriteria: ["All 3 implementations deadlock-free"],
+  },
+  27: {
+    fullTheory: `## Database & SQL Deep Dive
+
+### Query Plans
+\`\`\`sql
+EXPLAIN ANALYZE SELECT ...
+\`\`\`
+Look for:
+- Seq Scan on large tables (needs index)
+- Nested Loop with high row count (try Hash Join)
+- Expensive sorts (add index for ORDER BY)
+
+### N+1 Problem
+\`\`\`
+users = SELECT * FROM users
+for user in users:
+  user.orders = SELECT * FROM orders WHERE user_id = ?
+\`\`\`
+Fix: JOIN or IN (batch query).
+
+### Connection Pooling
+Each connection costs memory. Pool size heuristic: (cores * 2) + effective_spindle_count.
+HikariCP, PgBouncer.
+
+### Isolation Levels
+| Level | Dirty | Non-repeatable | Phantom |
+|---|---|---|---|
+| Read Uncommitted | ✓ | ✓ | ✓ |
+| Read Committed | ✗ | ✓ | ✓ |
+| Repeatable Read | ✗ | ✗ | ✓ |
+| Serializable | ✗ | ✗ | ✗ |
+
+### Deadlocks
+DB detects, aborts one (the "victim"). Minimize by:
+- Consistent lock ordering
+- Short transactions
+- Lower isolation level if possible
+
+### Window Functions
+\`\`\`sql
+SELECT product, revenue,
+  RANK() OVER (PARTITION BY category ORDER BY revenue DESC) AS rank
+FROM sales;
+\`\`\`
+Powerful for ranking, running totals, moving averages.
+
+### CTEs
+\`\`\`sql
+WITH active_users AS (SELECT ...)
+SELECT ... FROM active_users;
+\`\`\`
+Recursive CTEs for hierarchies.`,
+    problems: [
+      { lc: 176, n: "Second Highest Salary", diff: "Medium" },
+      { lc: 185, n: "Department Top Three Salaries", diff: "Hard" },
+      { lc: 1164, n: "Product Price at Given Date", diff: "Medium" },
+    ],
+    eveningSpec: "Complex SQL: window functions + CTEs. Optimize 2 slow queries with EXPLAIN. Design composite indexes.",
+    resources: [{ label: "PostgreSQL docs: Performance", url: "https://www.postgresql.org/docs/current/performance-tips.html" }],
+    successCriteria: ["5 SQL problems solved", "Optimized query shows 10x+ improvement"],
+  },
+  28: {
+    fullTheory: `## DevOps & Infrastructure
+
+### Docker
+- Dockerfile defines image
+- Multi-stage builds reduce size
+- \`.dockerignore\` avoids bloat
+- Non-root user for security
+- Pin versions (avoid \`:latest\`)
+
+### Kubernetes Basics
+- **Pod** — smallest deploy unit
+- **Deployment** — manages replicas, rolling updates
+- **Service** — stable endpoint (ClusterIP, NodePort, LoadBalancer)
+- **Ingress** — L7 routing
+- **ConfigMap/Secret** — config + sensitive data
+- **HPA** — horizontal pod autoscaler
+
+### CI/CD
+Pipeline stages:
+1. Lint / format
+2. Unit tests (parallel)
+3. Build (Docker image)
+4. Security scan (Snyk, Trivy)
+5. Deploy to staging
+6. Integration / E2E tests
+7. Manual approval (optional)
+8. Deploy to prod (canary/blue-green)
+
+### Monitoring
+- **Metrics**: Prometheus + Grafana
+- **Logs**: ELK or Loki
+- **Traces**: Jaeger, Tempo, OpenTelemetry
+- **Alerts**: Alertmanager, PagerDuty
+
+### Health Checks
+- **Liveness** — restart if failing
+- **Readiness** — stop sending traffic if failing
+
+### Deployment Strategies
+- **Rolling** — K8s default. Replace pods one at a time.
+- **Blue-Green** — two environments, switch traffic.
+- **Canary** — route X% to new version, ramp up if healthy.`,
+    problems: [],
+    eveningSpec: "Dockerize a microservice. Write K8s deployment + service manifest. Add health checks + HPA.",
+    resources: [
+      { label: "K8s docs", url: "https://kubernetes.io/docs/home/" },
+      { label: "Docker best practices", url: "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/" },
+    ],
+    successCriteria: ["Service deployed + scales", "Can explain each K8s object"],
+  },
+  29: {
+    fullTheory: `## Mock Interview Day
+
+Simulate a real interview loop. Timing is strict.
+
+### Structure
+- 45 min DSA (1 medium + 1 hard OR 2 mediums)
+- 5 min break
+- 45 min System Design (1 full system — chat, feed, etc.)
+- 5 min break
+- 60 min Machine Coding (1 LLD — parking lot, splitwise, etc.)
+- 5 min break
+- 30 min Behavioral (4-5 STAR stories)
+
+### Ground Rules
+- No Googling
+- No auto-complete / snippets
+- Explain while coding
+- Draw architecture before designing
+- Handle edge cases
+
+### Post-mock Review
+For each round:
+1. What went well?
+2. Where did you freeze or slow down?
+3. What would the interviewer have noted?
+4. What to improve tomorrow?`,
+    problems: [],
+    eveningSpec: "Run the full mock. Record yourself. Watch back. Write a review doc.",
+    resources: [
+      { label: "Pramp — free mock interviews", url: "https://www.pramp.com/" },
+      { label: "Interviewing.io", url: "https://interviewing.io/" },
+    ],
+    successCriteria: ["Completed full loop", "Review doc identifies 3+ concrete improvements"],
+  },
+  30: {
+    fullTheory: `## Final Prep & Revision
+
+### Revise
+- Top 20 DSA patterns (make a 1-pager cheat sheet)
+- 5 classic system designs (Chat, Feed, URL shortener, Rate limiter, Search)
+- 5 machine coding templates (ParkingLot, Splitwise, LRU, RateLimiter, Scheduler)
+- 8 STAR stories
+
+### Technique Checklist
+- **DSA**: Understand → Brute force → Optimize → Code → Test → Analyze
+- **System Design**: Requirements → Estimate → High-level → Deep dive → Bottlenecks → Trade-offs
+- **Machine Coding**: Clarify → Class design → Patterns → Implement core → Tests → Stretch features
+- **Behavioral**: Situation → Task → Action (bulk) → Result (quantified)
+
+### Day-of-interview
+- Sleep 8 hours
+- Eat light breakfast
+- Water available
+- Test webcam + mic + IDE
+- Calm breathing
+
+### Mental Posture
+Confidence ≠ arrogance. Show:
+- Genuine curiosity about the problem
+- Think out loud
+- Ask clarifying questions
+- Admit when you don't know (and show how you'd find out)
+- Recover gracefully from mistakes`,
+    problems: [],
+    eveningSpec: "Rest. Prep setup. Sleep early.",
+    resources: [],
+    successCriteria: ["Ready. Confident. Slept."],
+  },
 };
