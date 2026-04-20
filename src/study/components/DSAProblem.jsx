@@ -5,7 +5,9 @@ import CodeEditor from "./CodeEditor";
 
 export default function DSAProblem({ id }) {
   const navigate = useStudyStore((s) => s.navigate);
-  const problem = ALL_DSA.find((p) => p.id === id);
+  const overrides = useStudyStore((s) => s.contentOverrides.dsa);
+  const base = ALL_DSA.find((p) => p.id === id);
+  const problem = base ? { ...base, ...(overrides[id] || {}) } : (overrides[id] || null);
 
   if (!problem) {
     return (

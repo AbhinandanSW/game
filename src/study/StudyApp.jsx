@@ -11,6 +11,7 @@ import {
   signOut,
   requestAccess,
 } from "../firebase";
+import { fetchContent } from "./services/contentService";
 import { ALL_DSA } from "./data/dsa";
 import { JS_PROBLEMS } from "./data/jsProblems";
 import AuthGate from "./components/AuthGate";
@@ -98,6 +99,17 @@ export default function StudyApp() {
       unsubE && unsubE();
     };
   }, [user, setProgress, setAnswers, setEntries]);
+
+  // Load content overrides from Firestore (once, on first signed-in render)
+  useEffect(() => {
+    if (!user) return;
+    const setContentOverrides = useStudyStore.getState().setContentOverrides;
+    const kinds = ["dsa", "systemDesign", "machineCoding", "jsProblems", "concepts", "plans", "behavioral", "resources"];
+    kinds.forEach(async (kind) => {
+      const items = await fetchContent(kind);
+      if (items && Object.keys(items).length > 0) setContentOverrides(kind, items);
+    });
+  }, [user]);
 
   // Publish progress summary whenever progress changes (debounced)
   const progress = useStudyStore((s) => s.progress);

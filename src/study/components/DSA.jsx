@@ -1,11 +1,8 @@
 import React, { useState, useMemo } from "react";
 import useStudyStore from "../store/useStudyStore";
 import { ALL_DSA, CURATED_LISTS, PATTERNS, TIERS } from "../data/dsa";
+import { mergeWithOverrides } from "../services/contentService";
 import { setProgress } from "../../firebase";
-
-const ALL_COMPANIES = Array.from(new Set(
-  ALL_DSA.flatMap((p) => (p.companies || p.c || "").split(",").map((c) => c.trim()).filter(Boolean))
-)).sort();
 
 export default function DSA() {
   const [track, setTrack] = useState("all");
@@ -24,9 +21,20 @@ export default function DSA() {
   const updateLocal = useStudyStore((s) => s.updateProgressLocal);
   const user = useStudyStore((s) => s.user);
   const setToast = useStudyStore((s) => s.setToast);
+  const overrides = useStudyStore((s) => s.contentOverrides.dsa);
+
+  // Live-merged list — hardcoded + Firestore overrides (if admin seeded)
+  const mergedDSA = useMemo(
+    () => mergeWithOverrides(ALL_DSA, overrides),
+    [overrides]
+  );
+
+  const ALL_COMPANIES = useMemo(() => Array.from(new Set(
+    mergedDSA.flatMap((p) => (p.companies || p.c || "").split(",").map((c) => c.trim()).filter(Boolean))
+  )).sort(), [mergedDSA]);
 
   const filtered = useMemo(() => {
-    let list = ALL_DSA;
+    let list = mergedDSA;
 
     if (track === "fullstack" || track === "all") {
       // show everything
@@ -60,7 +68,7 @@ export default function DSA() {
       );
     }
     return list;
-  }, [track, diff, level, tier, curated, pattern, company, showCompletedOnly, search, progress]);
+  }, [mergedDSA, track, diff, level, tier, curated, pattern, company, showCompletedOnly, search, progress]);
 
   const stats = useMemo(() => {
     const done = filtered.filter((p) => progress[p.id]?.done).length;

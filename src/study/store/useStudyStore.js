@@ -33,6 +33,21 @@ const useStudyStore = create((set, get) => ({
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
 
+  // Content overrides from Firestore (keyed by kind → id → item)
+  // Components merge these with hardcoded data at render time.
+  contentOverrides: {
+    dsa: {},
+    systemDesign: {},
+    machineCoding: {},
+    jsProblems: {},
+    concepts: {},
+    plans: {},
+    behavioral: {},
+    resources: {},
+  },
+  setContentOverrides: (kind, items) =>
+    set((s) => ({ contentOverrides: { ...s.contentOverrides, [kind]: items } })),
+
   // UI
   toast: "",
   setToast: (toast) => {

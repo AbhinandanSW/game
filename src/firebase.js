@@ -161,6 +161,16 @@ export function subscribeAllowlist(callback) {
   }
 }
 
+// Check if current user's UID exists in admins collection (debug helper)
+export async function checkAdminDoc(uid) {
+  try {
+    const snap = await getDoc(doc(db, "admins", uid));
+    return { exists: snap.exists(), data: snap.exists() ? snap.data() : null };
+  } catch (e) {
+    return { exists: false, error: e.message || String(e), code: e.code };
+  }
+}
+
 export function subscribeAccessRequests(callback) {
   try {
     return onSnapshot(collection(db, "accessRequests"), (snap) => {
