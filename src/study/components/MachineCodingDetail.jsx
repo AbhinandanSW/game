@@ -11,6 +11,24 @@ const LANGS = [
   { id: "cpp", label: "C++" },
 ];
 
+function CrossQAItem({ qa, index }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="sp-cross-qa-item">
+      <button className="sp-cross-qa-q" onClick={() => setOpen((o) => !o)}>
+        <span className="sp-cross-qa-num">Q{index + 1}</span>
+        <span>{qa.q}</span>
+        <span className="sp-cross-qa-toggle">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="sp-cross-qa-a">
+          <span className="sp-cross-qa-label">A:</span> {qa.a}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MachineCodingDetail({ id }) {
   const navigate = useStudyStore((s) => s.navigate);
   const progress = useStudyStore((s) => s.progress);
@@ -93,6 +111,24 @@ export default function MachineCodingDetail({ id }) {
           {problem.p && (
             <div className="sp-pd-hint">
               <strong>Design Patterns:</strong> {problem.p}
+            </div>
+          )}
+
+          {problem.eval && (
+            <div className="sp-pd-section">
+              <h4>Evaluation Criteria</h4>
+              <p className="sp-pd-text" style={{ color: "var(--ink-dim)" }}>{problem.eval}</p>
+            </div>
+          )}
+
+          {problem.crossQA && problem.crossQA.length > 0 && (
+            <div className="sp-pd-section">
+              <h4>Cross Questions &amp; Answers</h4>
+              <div className="sp-cross-qa-list">
+                {problem.crossQA.map((qa, i) => (
+                  <CrossQAItem key={i} qa={qa} index={i} />
+                ))}
+              </div>
             </div>
           )}
 

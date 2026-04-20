@@ -1,4 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
+
+function CrossQAItem({ qa, index }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="sp-cross-qa-item">
+      <button className="sp-cross-qa-q" onClick={() => setOpen((o) => !o)}>
+        <span className="sp-cross-qa-num">Q{index + 1}</span>
+        <span>{qa.q}</span>
+        <span className="sp-cross-qa-toggle">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="sp-cross-qa-a">
+          <span className="sp-cross-qa-label">A:</span> {qa.a}
+        </div>
+      )}
+    </div>
+  );
+}
 import useStudyStore from "../store/useStudyStore";
 import { SYSTEM_DESIGN } from "../data/systemDesign";
 import { setAnswer } from "../../firebase";
@@ -116,6 +134,18 @@ export default function SystemDesignDetail({ id }) {
                 </ul>
               </div>
             )}
+          </div>
+        )}
+
+        {problem.crossQA && problem.crossQA.length > 0 && (
+          <div className="sp-sd-section" style={{ marginTop: "32px", paddingTop: "24px", borderTop: "1px dashed var(--border)" }}>
+            <h4>Cross Questions &amp; Answers</h4>
+            <p className="sp-sd-hint-text" style={{ marginBottom: "14px" }}>Common interviewer follow-up questions. Click to reveal answers.</p>
+            <div className="sp-cross-qa-list">
+              {problem.crossQA.map((qa, i) => (
+                <CrossQAItem key={i} qa={qa} index={i} />
+              ))}
+            </div>
           </div>
         )}
       </div>

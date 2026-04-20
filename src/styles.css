@@ -641,6 +641,36 @@ button { font-family: inherit; }
 }
 .sp-sd-solution { margin-top: 32px; padding-top: 24px; border-top: 1px dashed var(--border); }
 
+/* ─── Cross Q&A (Machine Coding + System Design) ─────────── */
+.sp-cross-qa-list { display: flex; flex-direction: column; gap: 8px; }
+.sp-cross-qa-item {
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+}
+.sp-cross-qa-q {
+  width: 100%; display: flex; align-items: flex-start; gap: 10px;
+  background: var(--bg); border: none; cursor: pointer;
+  padding: 12px 14px; text-align: left; color: var(--ink);
+  font-size: 13px; font-family: inherit; line-height: 1.5;
+  transition: background 0.15s;
+}
+.sp-cross-qa-q:hover { background: var(--bg-card); }
+.sp-cross-qa-num {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: var(--accent); background: rgba(99,102,241,0.12);
+  padding: 2px 6px; border-radius: 3px; white-space: nowrap; flex-shrink: 0;
+  margin-top: 1px;
+}
+.sp-cross-qa-toggle { margin-left: auto; flex-shrink: 0; color: var(--ink-faint); font-size: 11px; padding-top: 2px; }
+.sp-cross-qa-a {
+  padding: 12px 14px 14px; background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--ink-dim); line-height: 1.65;
+}
+.sp-cross-qa-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: var(--accent-2); margin-right: 6px;
+}
+
 /* ─── Machine Coding Grid ────────────────────────────────── */
 .sp-mc-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
