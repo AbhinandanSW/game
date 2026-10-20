@@ -24,6 +24,8 @@ export default function CodeEditor({ problem }) {
   const [running, setRunning] = useState(false);
   const saveTimerRef = useRef(null);
 
+  const done = !!progress[problem.id]?.done;
+
   // Load code for this language + problem
   useEffect(() => {
     const saved = progress[problem.id]?.code?.[lang];
@@ -31,17 +33,32 @@ export default function CodeEditor({ problem }) {
     setResult(null);
   }, [lang, problem.id]); // eslint-disable-line
 
+  // Save code for the current language immediately (used by submit / mark complete
+  // so the answer is stored even if the user clicks before the debounce fires).
+  const persistCode = (value = code, targetLang = lang) => {
+    const existing = progress[problem.id]?.code || {};
+    const newCode = { ...existing, [targetLang]: value };
+    updateLocal(problem.id, { code: newCode });
+    if (user) setProgress(user.uid, problem.id, { code: newCode });
+    return newCode;
+  };
+
   // Debounced save
   const onCodeChange = (val) => {
     const value = val || "";
     setCode(value);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      const existing = progress[problem.id]?.code || {};
-      const newCode = { ...existing, [lang]: value };
-      updateLocal(problem.id, { code: newCode });
-      if (user) setProgress(user.uid, problem.id, { code: newCode });
-    }, 800);
+    saveTimerRef.current = setTimeout(() => persistCode(value), 800);
+  };
+
+  // Manual completion — works for every language and regardless of test results,
+  // because the sandboxed runner can disagree with a local environment.
+  const markComplete = async (value = true) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    persistCode(code);
+    updateLocal(problem.id, { done: value });
+    setToast(value ? "Problem marked complete ✓" : "Marked as not complete");
+    if (user) await setProgress(user.uid, problem.id, { done: value });
   };
 
   const handleRun = () => {
@@ -63,14 +80,22 @@ export default function CodeEditor({ problem }) {
   };
 
   const handleSubmit = async () => {
-    handleRun();
-    if (lang === "javascript") {
-      const r = runJavaScript(code, problem.testCases || [], problem.fnName);
-      if (r.ok && r.allPass) {
-        updateLocal(problem.id, { done: true });
-        if (user) await setProgress(user.uid, problem.id, { done: true });
-        setToast("Problem marked complete!");
-      }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    persistCode(code);
+
+    const tests = problem.testCases || [];
+    if (lang !== "javascript" || tests.length === 0) {
+      handleRun();
+      setToast("Solution saved — use “Mark as complete” when you're done.");
+      return;
+    }
+
+    const r = runJavaScript(code, tests, problem.fnName);
+    setResult(r);
+    if (r.ok && r.allPass) {
+      await markComplete(true);
+    } else {
+      setToast("Tests failed — you can still mark this problem complete.");
     }
   };
 
@@ -114,6 +139,33 @@ export default function CodeEditor({ problem }) {
         />
       </div>
 
+      <div className="sp-complete-strip">
+        <div className="sp-complete-info">
+          <span className={`sp-complete-pill ${done ? "on" : ""}`}>
+            {done ? "Completed" : "Not complete"}
+          </span>
+          <span className="sp-complete-hint">
+            {done
+              ? "Saved to your progress with your latest code."
+              : "Tests run in your browser and may fail where your local setup passes — you can mark this complete any time."}
+          </span>
+        </div>
+        {done ? (
+          <button
+            className="sp-btn sp-btn-done"
+            onClick={() => markComplete(false)}
+            title="Mark as not complete"
+            aria-label="Mark as not complete"
+          >
+            ✓ Completed
+          </button>
+        ) : (
+          <button className="sp-btn sp-btn-success" onClick={() => markComplete(true)}>
+            ✓ Mark as complete
+          </button>
+        )}
+      </div>
+
       {result && (
         <div className="sp-results">
           {!result.ok && <div className="sp-result-msg">{result.message}</div>}
@@ -121,6 +173,11 @@ export default function CodeEditor({ problem }) {
             <>
               <div className={`sp-result-header ${result.allPass ? "pass" : "fail"}`}>
                 {result.allPass ? "✓ All tests passed" : "✗ Some tests failed"} — {result.results.filter(r => r.pass).length} / {result.results.length}
+                {!result.allPass && (
+                  <span className="sp-result-hint">
+                    Passing on your machine? Mark it complete above.
+                  </span>
+                )}
               </div>
               <div className="sp-test-list">
                 {result.results.map((r, i) => (

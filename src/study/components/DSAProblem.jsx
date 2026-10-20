@@ -74,7 +74,8 @@ export default function DSAProblem({ id }) {
 
           {!hasTests && (
             <div className="sp-pd-note">
-              <strong>Note:</strong> This problem doesn't have built-in test cases yet. Write your solution, test it locally, and mark as complete when done.
+              <strong>Note:</strong> This problem doesn't have built-in test cases yet. Write your solution,
+              test it locally, then use <strong>Mark as complete</strong> in the editor panel.
             </div>
           )}
         </div>
