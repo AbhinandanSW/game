@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import useStudyStore from "../store/useStudyStore";
 import { SYSTEM_DESIGN } from "../data/systemDesign";
+import PageHeader from "./PageHeader";
 
 export default function SystemDesign() {
   const [track, setTrack] = useState("all");
@@ -8,15 +9,21 @@ export default function SystemDesign() {
   const answers = useStudyStore((s) => s.answers);
 
   const list = track === "all" ? SYSTEM_DESIGN : SYSTEM_DESIGN.filter((s) => s.track === track);
+  const answered = SYSTEM_DESIGN.filter((s) => answers[s.id]?.text).length;
 
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">03</span>System Design</h2>
-        <p className="sp-section-desc">
-          Click a topic to see the full problem, write your answer, and compare with the reference approach.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="03 · Design"
+        title="System Design"
+        description="Click a topic to see the full problem, write your answer, and compare with the reference approach."
+        actions={
+          <div className="sp-head-stat">
+            <strong>{answered}</strong>
+            <span>of {SYSTEM_DESIGN.length} answered</span>
+          </div>
+        }
+      />
 
       <div className="sp-filters">
         <div className="sp-filter-group">

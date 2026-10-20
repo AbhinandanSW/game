@@ -16,6 +16,7 @@ export default function CodeEditor({ problem }) {
   const progress = useStudyStore((s) => s.progress);
   const updateLocal = useStudyStore((s) => s.updateProgressLocal);
   const setToast = useStudyStore((s) => s.setToast);
+  const theme = useStudyStore((s) => s.theme);
 
   const [lang, setLang] = useState("javascript");
   const [code, setCode] = useState("");
@@ -101,7 +102,7 @@ export default function CodeEditor({ problem }) {
           language={lang}
           value={code}
           onChange={onCodeChange}
-          theme="vs-dark"
+          theme={theme === "light" ? "light" : "vs-dark"}
           options={{
             fontSize: 13,
             minimap: { enabled: false },

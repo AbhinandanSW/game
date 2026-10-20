@@ -3,6 +3,7 @@ import Editor from "@monaco-editor/react";
 import useStudyStore from "../store/useStudyStore";
 import { MACHINE_CODING } from "../data/machineCoding";
 import { setProgress } from "../../firebase";
+import Breadcrumbs from "./Breadcrumbs";
 
 const LANGS = [
   { id: "javascript", label: "JavaScript" },
@@ -30,11 +31,11 @@ function CrossQAItem({ qa, index }) {
 }
 
 export default function MachineCodingDetail({ id }) {
-  const navigate = useStudyStore((s) => s.navigate);
   const progress = useStudyStore((s) => s.progress);
   const updateLocal = useStudyStore((s) => s.updateProgressLocal);
   const user = useStudyStore((s) => s.user);
   const setToast = useStudyStore((s) => s.setToast);
+  const theme = useStudyStore((s) => s.theme);
 
   const problem = MACHINE_CODING.find((m) => m.id === id);
   const [lang, setLang] = useState("javascript");
@@ -67,8 +68,8 @@ export default function MachineCodingDetail({ id }) {
 
   if (!problem) return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost" onClick={() => navigate("machine-coding")}>← Back</button>
-      <p>Not found.</p>
+      <Breadcrumbs section="machine-coding" />
+      <p className="sp-empty">Not found. <a href="#/machine-coding">Back to Machine Coding</a></p>
     </section>
   );
 
@@ -76,7 +77,7 @@ export default function MachineCodingDetail({ id }) {
 
   return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost sp-back" onClick={() => navigate("machine-coding")}>← Back to Machine Coding</button>
+      <Breadcrumbs section="machine-coding" current={problem.n} />
 
       <div className="sp-problem-layout">
         <div className="sp-problem-desc">
@@ -153,7 +154,7 @@ export default function MachineCodingDetail({ id }) {
               language={lang}
               value={code}
               onChange={onCodeChange}
-              theme="vs-dark"
+              theme={theme === "light" ? "light" : "vs-dark"}
               options={{ fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, tabSize: 2, automaticLayout: true }}
             />
           </div>

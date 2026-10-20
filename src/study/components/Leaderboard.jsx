@@ -3,6 +3,7 @@ import useStudyStore from "../store/useStudyStore";
 import { subscribeAllUsers, subscribeAllProgressSummary } from "../../firebase";
 import { ALL_DSA } from "../data/dsa";
 import { JS_PROBLEMS } from "../data/jsProblems";
+import PageHeader from "./PageHeader";
 
 const TOTAL_TRACKABLE = ALL_DSA.length + JS_PROBLEMS.length;
 
@@ -60,12 +61,17 @@ export default function Leaderboard() {
 
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">00</span>Dashboard</h2>
-        <p className="sp-section-desc">
-          See how you and your friends are progressing. Only totals are visible — your solutions stay private.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="01 · Progress"
+        title="Dashboard"
+        description="See how you and your friends are progressing. Only totals are visible — your solutions stay private."
+        actions={
+          <div className="sp-head-stat">
+            <strong>{myRank > 0 ? `#${myRank}` : "—"}</strong>
+            <span>of {rows.length} {rows.length === 1 ? "player" : "players"}</span>
+          </div>
+        }
+      />
 
       <div className="sp-lb-summary">
         <div className="sp-lb-summary-card">

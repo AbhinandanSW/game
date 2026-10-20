@@ -2,12 +2,14 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import useStudyStore from "../store/useStudyStore";
 import { BEHAVIORAL_PROMPTS, STAR_TEMPLATE } from "../data/behavioral";
 import { setAnswer } from "../../firebase";
+import PageHeader from "./PageHeader";
+import Breadcrumbs from "./Breadcrumbs";
 
-export default function Behavioral() {
+export default function Behavioral({ id }) {
   const [level, setLevel] = useState("all");
   const [cat, setCat] = useState("all");
-  const [selected, setSelected] = useState(null);
   const [answer, setAnswerLocal] = useState("");
+  const navigate = useStudyStore((s) => s.navigate);
   const user = useStudyStore((s) => s.user);
   const answers = useStudyStore((s) => s.answers);
   const setToast = useStudyStore((s) => s.setToast);
@@ -16,6 +18,12 @@ export default function Behavioral() {
 
   const levels = ["all", "L1", "L2", "L3"];
   const cats = ["all", ...Array.from(new Set(BEHAVIORAL_PROMPTS.map((p) => p.cat)))];
+
+  // The selected prompt is part of the URL: #/behavioral/<id>
+  const selected = useMemo(
+    () => (id ? BEHAVIORAL_PROMPTS.find((p) => p.id === id) || null : null),
+    [id]
+  );
 
   const filtered = useMemo(() => {
     let list = BEHAVIORAL_PROMPTS;
@@ -31,6 +39,7 @@ export default function Behavioral() {
   }, [selected, answers]);
 
   const onAnswerChange = (e) => {
+    if (!selected) return;
     const v = e.target.value;
     setAnswerLocal(v);
     updateAnswerLocal(selected.id, v);
@@ -40,14 +49,23 @@ export default function Behavioral() {
     }, 800);
   };
 
+  const answeredCount = BEHAVIORAL_PROMPTS.filter((p) => answers[p.id]?.text).length;
+
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">10</span>Behavioral</h2>
-        <p className="sp-section-desc">
-          STAR-based interview prep. Pick a prompt, write your story. Save and refine — recall beats reinvention in the real interview.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="10 · Behavioral"
+        title={selected ? selected.n : "Behavioral"}
+        description="STAR-based interview prep. Pick a prompt, write your story. Save and refine — recall beats reinvention in the real interview."
+        actions={
+          <div className="sp-head-stat">
+            <strong>{answeredCount}</strong>
+            <span>of {BEHAVIORAL_PROMPTS.length} stories written</span>
+          </div>
+        }
+      />
+
+      {selected && <Breadcrumbs section="behavioral" current={selected.n} />}
 
       <div className="sp-bh-layout">
         <div className="sp-bh-list-wrap">
@@ -77,7 +95,15 @@ export default function Behavioral() {
                 <div
                   key={p.id}
                   className={`sp-bh-item ${selected?.id === p.id ? "active" : ""}`}
-                  onClick={() => setSelected(p)}
+                  onClick={() => navigate("behavioral", p.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate("behavioral", p.id);
+                    }
+                  }}
                 >
                   <div className="sp-bh-item-head">
                     <span className={`sp-badge sp-b-level-${p.level.toLowerCase()}`}>{p.level}</span>

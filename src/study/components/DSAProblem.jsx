@@ -2,9 +2,9 @@ import React from "react";
 import useStudyStore from "../store/useStudyStore";
 import { ALL_DSA } from "../data/dsa";
 import CodeEditor from "./CodeEditor";
+import Breadcrumbs from "./Breadcrumbs";
 
 export default function DSAProblem({ id }) {
-  const navigate = useStudyStore((s) => s.navigate);
   const overrides = useStudyStore((s) => s.contentOverrides.dsa);
   const base = ALL_DSA.find((p) => p.id === id);
   const problem = base ? { ...base, ...(overrides[id] || {}) } : (overrides[id] || null);
@@ -12,8 +12,8 @@ export default function DSAProblem({ id }) {
   if (!problem) {
     return (
       <section className="sp-section">
-        <button className="sp-btn sp-btn-ghost" onClick={() => navigate("dsa")}>← Back</button>
-        <p>Problem not found.</p>
+        <Breadcrumbs section="dsa" />
+        <p className="sp-empty">Problem not found. <a href="#/dsa">Back to DSA</a></p>
       </section>
     );
   }
@@ -22,7 +22,7 @@ export default function DSAProblem({ id }) {
 
   return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost sp-back" onClick={() => navigate("dsa")}>← Back to DSA</button>
+      <Breadcrumbs section="dsa" current={problem.n} />
 
       <div className="sp-problem-layout">
         <div className="sp-problem-desc">

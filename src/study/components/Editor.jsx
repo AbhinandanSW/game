@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import useStudyStore from "../store/useStudyStore";
 import { addEntry, deleteEntry } from "../../firebase";
+import PageHeader from "./PageHeader";
 
 export default function Editor() {
   const entries = useStudyStore((s) => s.entries);
@@ -52,10 +53,11 @@ export default function Editor() {
 
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">09</span>Editor — Add Your Own</h2>
-        <p className="sp-section-desc">Add custom problems, concepts, notes. Saved to Firestore, synced across devices.</p>
-      </div>
+      <PageHeader
+        eyebrow="09 · Your Notes"
+        title="Editor — Add Your Own"
+        description="Add custom problems, concepts, notes. Saved to Firestore, synced across devices."
+      />
 
       <div className="sp-editor-layout">
         <form className="sp-entry-form" onSubmit={handleSubmit}>

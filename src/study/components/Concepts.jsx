@@ -1,9 +1,11 @@
 import React from "react";
 import useStudyStore from "../store/useStudyStore";
 import { CONCEPTS_COMMON, CONCEPTS_FE, CONCEPTS_BE, CONCEPTS_ARCHITECTURE } from "../data/concepts";
+import PageHeader from "./PageHeader";
 
 export default function Concepts() {
   const navigate = useStudyStore((s) => s.navigate);
+  const total = CONCEPTS_COMMON.length + CONCEPTS_FE.length + CONCEPTS_BE.length + CONCEPTS_ARCHITECTURE.length;
 
   const groups = {};
   CONCEPTS_ARCHITECTURE.forEach((c) => {
@@ -24,10 +26,17 @@ export default function Concepts() {
 
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">05</span>Concepts</h2>
-        <p className="sp-section-desc">Deep explanations on demand. Click any card to expand the full write-up.</p>
-      </div>
+      <PageHeader
+        eyebrow="05 · Explain"
+        title="Concepts"
+        description="Deep explanations on demand. Click any card to expand the full write-up."
+        actions={
+          <div className="sp-head-stat">
+            <strong>{total}</strong>
+            <span>concepts</span>
+          </div>
+        }
+      />
 
       <div className="sp-concept-cat">
         <h3>Shared Concepts (Study Once, Use Both)</h3>

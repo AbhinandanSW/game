@@ -14,6 +14,8 @@ import {
 import { fetchContent } from "./services/contentService";
 import { ALL_DSA } from "./data/dsa";
 import { JS_PROBLEMS } from "./data/jsProblems";
+import { getSection, parseHash, hashForLogin } from "./router";
+import { applyTheme } from "./theme";
 import AuthGate from "./components/AuthGate";
 import Nav from "./components/Nav";
 import Overview from "./components/Overview";
@@ -35,6 +37,7 @@ import Resources from "./components/Resources";
 import Editor from "./components/Editor";
 import Progress from "./components/Progress";
 import Toast from "./components/Toast";
+import NotFound from "./components/NotFound";
 
 export default function StudyApp() {
   const user = useStudyStore((s) => s.user);
@@ -44,6 +47,66 @@ export default function StudyApp() {
   const setAnswers = useStudyStore((s) => s.setAnswers);
   const setEntries = useStudyStore((s) => s.setEntries);
   const route = useStudyStore((s) => s.route);
+  const setRoute = useStudyStore((s) => s.setRoute);
+  const theme = useStudyStore((s) => s.theme);
+
+  // Hash router — keeps the URL in sync with the active page so every route is
+  // shareable, bookmarkable, and works with the browser back/forward buttons.
+  useEffect(() => {
+    const sync = () => setRoute(parseHash(window.location.hash));
+
+    if (!window.location.hash) {
+      window.history.replaceState(null, "", "#/overview");
+    } else {
+      sync();
+    }
+
+    const onStorage = (e) => {
+      if (e.key !== "sdp-theme") return;
+      const next = e.newValue === "light" ? "light" : e.newValue === "dark" ? "dark" : null;
+      if (next) useStudyStore.getState().setTheme(next);
+    };
+
+    window.addEventListener("hashchange", sync);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("hashchange", sync);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [setRoute]);
+
+  // Keep the <html data-theme> attribute + document title in sync.
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  // Signed out: send protected routes to the login screen, remembering the target.
+  useEffect(() => {
+    if (authLoading || user) return;
+    if (route.section === "login") return;
+    const next = route.path && route.path !== "/overview" ? route.path : null;
+    const target = hashForLogin(next);
+    window.history.replaceState(null, "", target);
+    setRoute(parseHash(target));
+  }, [authLoading, user, route.section, route.path, setRoute]);
+
+  // Signed in: the login screen is never a destination.
+  const nextTarget = route.query?.next || "";
+  useEffect(() => {
+    if (authLoading || !user || route.section !== "login") return;
+    const target = nextTarget || "/overview";
+    window.history.replaceState(null, "", `#${target}`);
+    setRoute(parseHash(target));
+  }, [authLoading, user, route.section, nextTarget, setRoute]);
+
+  useEffect(() => {
+    const def = getSection(route.section);
+    const routeTitle = def
+      ? `${def.label} · Skill Development Plan`
+      : "Page not found · Skill Development Plan";
+    document.title = user ? routeTitle : "Sign in · Skill Development Plan";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [route.section, route.itemId, user]);
 
   // Auth subscription — check allowlist on every auth state change
   // Handles: fresh sign-in, stale session (admin revoked), sign-out
@@ -129,29 +192,47 @@ export default function StudyApp() {
     );
   }
 
-  if (!user) return <AuthGate />;
+  if (!user) {
+    // While the redirect effect catches up, still show the login screen with the
+    // destination the visitor originally asked for.
+    const loginNext =
+      route.query?.next ||
+      (route.section !== "login" && route.path && route.path !== "/overview" ? route.path : null);
+    return <AuthGate next={loginNext} />;
+  }
+
+  if (route.section === "login") {
+    return (
+      <div className="sp-loading">
+        <div className="sp-loading-inner">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="sp-app">
       <Nav />
       <main className="sp-main">
-        {route.section === "overview" && <Overview />}
-        {route.section === "dashboard" && <Leaderboard />}
-        {route.section === "admin" && <Admin />}
-        {route.section === "behavioral" && <Behavioral />}
-        {route.section === "dsa" && !route.itemId && <DSA />}
-        {route.section === "dsa" && route.itemId && <DSAProblem id={route.itemId} />}
-        {route.section === "system-design" && !route.itemId && <SystemDesign />}
-        {route.section === "system-design" && route.itemId && <SystemDesignDetail id={route.itemId} />}
-        {route.section === "machine-coding" && !route.itemId && <MachineCoding />}
-        {route.section === "machine-coding" && route.itemId && <MachineCodingDetail id={route.itemId} />}
-        {route.section === "concepts" && !route.itemId && <Concepts />}
-        {route.section === "concepts" && route.itemId && <ConceptDetail id={route.itemId} />}
-        {route.section === "plan" && <Plan />}
-        {route.section === "js-problems" && !route.itemId && <JSProblems />}
-        {route.section === "js-problems" && route.itemId && <JSProblemDetail id={route.itemId} />}
-        {route.section === "resources" && <Resources />}
-        {route.section === "editor" && <Editor />}
+        <div className="sp-route" key={route.section}>
+          {route.section === "overview" && <Overview />}
+          {route.section === "dashboard" && <Leaderboard />}
+          {route.section === "admin" && <Admin />}
+          {route.section === "behavioral" && <Behavioral id={route.itemId} />}
+          {route.section === "dsa" && !route.itemId && <DSA />}
+          {route.section === "dsa" && route.itemId && <DSAProblem id={route.itemId} />}
+          {route.section === "system-design" && !route.itemId && <SystemDesign />}
+          {route.section === "system-design" && route.itemId && <SystemDesignDetail id={route.itemId} />}
+          {route.section === "machine-coding" && !route.itemId && <MachineCoding />}
+          {route.section === "machine-coding" && route.itemId && <MachineCodingDetail id={route.itemId} />}
+          {route.section === "concepts" && !route.itemId && <Concepts />}
+          {route.section === "concepts" && route.itemId && <ConceptDetail id={route.itemId} />}
+          {route.section === "plan" && <Plan track={route.itemId} />}
+          {route.section === "js-problems" && !route.itemId && <JSProblems />}
+          {route.section === "js-problems" && route.itemId && <JSProblemDetail id={route.itemId} />}
+          {route.section === "resources" && <Resources />}
+          {route.section === "editor" && <Editor />}
+          {route.section === "not-found" && <NotFound path={route.path} />}
+        </div>
       </main>
       <Progress />
       <Toast />

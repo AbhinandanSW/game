@@ -3,6 +3,7 @@ import useStudyStore from "../store/useStudyStore";
 import { ALL_DSA, CURATED_LISTS, PATTERNS, TIERS } from "../data/dsa";
 import { mergeWithOverrides } from "../services/contentService";
 import { setProgress } from "../../firebase";
+import PageHeader from "./PageHeader";
 
 export default function DSA() {
   const [track, setTrack] = useState("all");
@@ -92,13 +93,22 @@ export default function DSA() {
 
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">02</span>DSA Problems</h2>
-        <p className="sp-section-desc">
-          {ALL_DSA.length} problems covering Blind 75, NeetCode 150, Grind 75, Striver SDE, and company-specific sets.
-          Filter by role, tier, curated list, pattern, or company.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="02 · Practice"
+        title="DSA Problems"
+        description={
+          <>
+            {ALL_DSA.length} problems covering Blind 75, NeetCode 150, Grind 75, Striver SDE, and company-specific sets.
+            Filter by role, tier, curated list, pattern, or company.
+          </>
+        }
+        actions={
+          <div className="sp-head-stat">
+            <strong>{stats.done}</strong>
+            <span>of {stats.total} in view done</span>
+          </div>
+        }
+      />
 
       {/* Primary filters — always visible */}
       <div className="sp-filters">

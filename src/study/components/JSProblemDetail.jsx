@@ -3,13 +3,14 @@ import Editor from "@monaco-editor/react";
 import useStudyStore from "../store/useStudyStore";
 import { JS_PROBLEMS } from "../data/jsProblems";
 import { setProgress } from "../../firebase";
+import Breadcrumbs from "./Breadcrumbs";
 
 export default function JSProblemDetail({ id }) {
-  const navigate = useStudyStore((s) => s.navigate);
   const progress = useStudyStore((s) => s.progress);
   const updateLocal = useStudyStore((s) => s.updateProgressLocal);
   const user = useStudyStore((s) => s.user);
   const setToast = useStudyStore((s) => s.setToast);
+  const theme = useStudyStore((s) => s.theme);
 
   const problem = JS_PROBLEMS.find((p) => p.id === id);
   const [code, setCode] = useState("");
@@ -60,8 +61,8 @@ export default function JSProblemDetail({ id }) {
 
   if (!problem) return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost" onClick={() => navigate("js-problems")}>← Back</button>
-      <p>Not found.</p>
+      <Breadcrumbs section="js-problems" />
+      <p className="sp-empty">Not found. <a href="#/js-problems">Back to JS Problems</a></p>
     </section>
   );
 
@@ -69,7 +70,7 @@ export default function JSProblemDetail({ id }) {
 
   return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost sp-back" onClick={() => navigate("js-problems")}>← Back to JS Problems</button>
+      <Breadcrumbs section="js-problems" current={problem.n} />
 
       <div className="sp-problem-layout">
         <div className="sp-problem-desc">
@@ -111,7 +112,7 @@ export default function JSProblemDetail({ id }) {
               language="javascript"
               value={code}
               onChange={onCodeChange}
-              theme="vs-dark"
+              theme={theme === "light" ? "light" : "vs-dark"}
               options={{ fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, tabSize: 2, automaticLayout: true }}
             />
           </div>

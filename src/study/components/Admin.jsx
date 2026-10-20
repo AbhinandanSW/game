@@ -10,6 +10,7 @@ import {
   checkAdminDoc,
 } from "../../firebase";
 import { seedAllContent } from "../services/contentService";
+import PageHeader from "./PageHeader";
 
 export default function Admin() {
   const user = useStudyStore((s) => s.user);
@@ -122,12 +123,11 @@ export default function Admin() {
 
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">★</span>Admin Panel</h2>
-        <p className="sp-section-desc">
-          Manage who can access the platform. Pending requests at the top.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="★ · Access"
+        title="Admin Panel"
+        description="Manage who can access the platform. Pending requests at the top."
+      />
 
       {/* Admin Identity Debug */}
       <div className="sp-admin-block">

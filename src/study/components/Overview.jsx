@@ -1,11 +1,17 @@
 import React from "react";
 import useStudyStore from "../store/useStudyStore";
 import { ALL_DSA } from "../data/dsa";
+import { JS_PROBLEMS } from "../data/jsProblems";
+import { SECTIONS, hashFor } from "../router";
+
+const EXPLORE = SECTIONS.filter((s) => !s.adminOnly && s.id !== "overview");
 
 export default function Overview() {
   const navigate = useStudyStore((s) => s.navigate);
   const progress = useStudyStore((s) => s.progress);
   const done = Object.values(progress).filter((p) => p?.done).length;
+  const trackable = ALL_DSA.length + JS_PROBLEMS.length;
+  const pct = trackable ? Math.round((done / trackable) * 100) : 0;
 
   return (
     <>
@@ -20,6 +26,20 @@ export default function Overview() {
           A combined study blueprint for Frontend and Backend SDE interviews at Indian startups and MNCs.
           DSA overlaps, divergent specializations, day-by-day schedules, and every problem worth solving — all in one place.
         </p>
+        <div className="sp-hero-actions">
+          <a className="sp-btn sp-btn-primary sp-btn-lg" href={hashFor("plan")}>Start the 30-day plan</a>
+          <a className="sp-btn sp-btn-ghost sp-btn-lg" href={hashFor("dsa")}>
+            Browse {ALL_DSA.length} DSA problems
+          </a>
+        </div>
+        <div className="sp-hero-progress">
+          <div className="sp-hero-progress-track">
+            <div className="sp-hero-progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="sp-hero-progress-label">
+            {done} / {trackable} tracked · {pct}%
+          </span>
+        </div>
       </header>
 
       <div className="sp-stats">
@@ -40,6 +60,28 @@ export default function Overview() {
           <div className="sp-stat-label">Your Progress</div>
         </div>
       </div>
+
+      <section className="sp-section">
+        <div className="sp-section-head">
+          <h2><span className="num">00</span>Explore Every Section</h2>
+          <p className="sp-section-desc">
+            Each page has its own URL — bookmark it, share it, or jump straight in from here.
+          </p>
+        </div>
+
+        <div className="sp-quick-grid">
+          {EXPLORE.map((s) => (
+            <a key={s.id} className="sp-quick-card" href={hashFor(s.id)}>
+              <span className="sp-quick-icon" aria-hidden="true">{s.icon}</span>
+              <span className="sp-quick-body">
+                <span className="sp-quick-title">{s.label}</span>
+                <span className="sp-quick-desc">{s.desc}</span>
+              </span>
+              <span className="sp-quick-url">#{s.path}</span>
+            </a>
+          ))}
+        </div>
+      </section>
 
       <section className="sp-section">
         <div className="sp-section-head">

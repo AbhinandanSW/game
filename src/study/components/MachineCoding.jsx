@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import useStudyStore from "../store/useStudyStore";
 import { MACHINE_CODING } from "../data/machineCoding";
+import PageHeader from "./PageHeader";
 
 export default function MachineCoding() {
   const [track, setTrack] = useState("all");
@@ -10,10 +11,17 @@ export default function MachineCoding() {
 
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">04</span>Machine Coding</h2>
-        <p className="sp-section-desc">Low-level design & UI components. Click any to open the IDE.</p>
-      </div>
+      <PageHeader
+        eyebrow="04 · Build"
+        title="Machine Coding"
+        description="Low-level design & UI components. Click any to open the IDE."
+        actions={
+          <div className="sp-head-stat">
+            <strong>{list.length}</strong>
+            <span>kata in view</span>
+          </div>
+        }
+      />
 
       <div className="sp-filters">
         <div className="sp-filter-group">

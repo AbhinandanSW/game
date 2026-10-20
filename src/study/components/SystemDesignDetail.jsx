@@ -20,9 +20,9 @@ function CrossQAItem({ qa, index }) {
 import useStudyStore from "../store/useStudyStore";
 import { SYSTEM_DESIGN } from "../data/systemDesign";
 import { setAnswer } from "../../firebase";
+import Breadcrumbs from "./Breadcrumbs";
 
 export default function SystemDesignDetail({ id }) {
-  const navigate = useStudyStore((s) => s.navigate);
   const answers = useStudyStore((s) => s.answers);
   const user = useStudyStore((s) => s.user);
   const setToast = useStudyStore((s) => s.setToast);
@@ -56,14 +56,14 @@ export default function SystemDesignDetail({ id }) {
 
   if (!problem) return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost" onClick={() => navigate("system-design")}>← Back</button>
-      <p>Not found.</p>
+      <Breadcrumbs section="system-design" />
+      <p className="sp-empty">Not found. <a href="#/system-design">Back to System Design</a></p>
     </section>
   );
 
   return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost sp-back" onClick={() => navigate("system-design")}>← Back to System Design</button>
+      <Breadcrumbs section="system-design" current={problem.title} />
 
       <div className="sp-sd-detail">
         <div className="sp-sd-detail-header">

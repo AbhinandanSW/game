@@ -4,7 +4,25 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-	<meta name="theme-color" content="#000000">
+	<meta name="theme-color" content="#0e0e10">
+	<meta name="color-scheme" content="dark light">
+	<meta name="description" content="A combined 30-day Frontend &amp; Backend SDE interview prep plan: DSA problems, system design, machine coding, concepts, JS problems, and behavioral prep in one place.">
+	<link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.ico">
+	<script>
+		// Apply the stored theme before paint so there is no light/dark flash.
+		(function () {
+			try {
+				var stored = window.localStorage.getItem("sdp-theme");
+				var theme = stored === "light" || stored === "dark"
+					? stored
+					: (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+				document.documentElement.setAttribute("data-theme", theme);
+				document.documentElement.style.colorScheme = theme;
+				var meta = document.querySelector('meta[name="theme-color"]');
+				if (meta) meta.setAttribute("content", theme === "light" ? "#f7f4ed" : "#0e0e10");
+			} catch (e) { /* ignore */ }
+		})();
+	</script>
 	<!--
       manifest.json provides metadata used when your web app is added to the
       homescreen on Android. See https://developers.google.com/web/fundamentals/engage-and-retain/web-app-manifest/

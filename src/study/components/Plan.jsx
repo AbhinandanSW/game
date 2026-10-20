@@ -1,6 +1,8 @@
 import React, { useState } from "react";
+import useStudyStore from "../store/useStudyStore";
 import { FE_PLAN, BE_PLAN } from "../data/plans";
 import { FE_PLAN_DETAIL, BE_PLAN_DETAIL } from "../data/plans-detail";
+import PageHeader from "./PageHeader";
 
 // Simple markdown renderer for theory text
 function renderMD(md) {
@@ -51,23 +53,50 @@ function renderMD(md) {
   });
 }
 
-export default function Plan() {
-  const [track, setTrack] = useState("fe");
+export default function Plan({ track: trackParam }) {
+  const navigate = useStudyStore((s) => s.navigate);
+  const track = trackParam === "be" ? "be" : "fe";
   const [openDay, setOpenDay] = useState(null);
 
   const plan = track === "fe" ? FE_PLAN : BE_PLAN;
   const detail = track === "fe" ? FE_PLAN_DETAIL : BE_PLAN_DETAIL;
 
+  const setTrack = (next) => {
+    setOpenDay(null);
+    navigate("plan", next === "be" ? "be" : null);
+  };
+
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">06</span>30-Day Plan</h2>
-        <p className="sp-section-desc">Day-by-day schedule with full theory, specific problems, detailed tasks, resources, and success criteria.</p>
-      </div>
+      <PageHeader
+        eyebrow="06 · Schedule"
+        title="30-Day Plan"
+        description="Day-by-day schedule with full theory, specific problems, detailed tasks, resources, and success criteria."
+        actions={
+          <div className="sp-head-stat">
+            <strong>{plan.length}</strong>
+            <span>days · {track === "fe" ? "Frontend" : "Backend"} track</span>
+          </div>
+        }
+      />
 
-      <div className="sp-plan-tabs">
-        <button className={`sp-plan-tab ${track === "fe" ? "active" : ""}`} onClick={() => { setTrack("fe"); setOpenDay(null); }}>Frontend Track</button>
-        <button className={`sp-plan-tab ${track === "be" ? "active" : ""}`} onClick={() => { setTrack("be"); setOpenDay(null); }}>Backend Track</button>
+      <div className="sp-plan-tabs" role="tablist" aria-label="Plan track">
+        <button
+          role="tab"
+          aria-selected={track === "fe"}
+          className={`sp-plan-tab ${track === "fe" ? "active" : ""}`}
+          onClick={() => setTrack("fe")}
+        >
+          Frontend Track
+        </button>
+        <button
+          role="tab"
+          aria-selected={track === "be"}
+          className={`sp-plan-tab ${track === "be" ? "active" : ""}`}
+          onClick={() => setTrack("be")}
+        >
+          Backend Track
+        </button>
       </div>
 
       <div className="sp-day-grid">

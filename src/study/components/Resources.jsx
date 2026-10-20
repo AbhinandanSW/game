@@ -1,13 +1,21 @@
 import React from "react";
 import { RESOURCES } from "../data/resources";
+import PageHeader from "./PageHeader";
 
 export default function Resources() {
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">08</span>Resources &amp; Tips</h2>
-        <p className="sp-section-desc">Books, channels, and strategies that work for Indian startup & MNC interview loops.</p>
-      </div>
+      <PageHeader
+        eyebrow="08 · Library"
+        title="Resources & Tips"
+        description="Books, channels, and strategies that work for Indian startup & MNC interview loops."
+        actions={
+          <div className="sp-head-stat">
+            <strong>{RESOURCES.length}</strong>
+            <span>handpicked resources</span>
+          </div>
+        }
+      />
 
       <div className="sp-resource-grid">
         {RESOURCES.map((r, i) => (

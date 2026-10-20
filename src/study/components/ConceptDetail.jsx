@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import useStudyStore from "../store/useStudyStore";
 import { CONCEPTS_COMMON, CONCEPTS_FE, CONCEPTS_BE, CONCEPTS_ARCHITECTURE } from "../data/concepts";
 import { setAnswer } from "../../firebase";
+import Breadcrumbs from "./Breadcrumbs";
 
 const ALL_CONCEPTS = [...CONCEPTS_COMMON, ...CONCEPTS_FE, ...CONCEPTS_BE, ...CONCEPTS_ARCHITECTURE];
 
@@ -117,7 +118,6 @@ function formatInline(s) {
 }
 
 export default function ConceptDetail({ id }) {
-  const navigate = useStudyStore((s) => s.navigate);
   const answers = useStudyStore((s) => s.answers);
   const user = useStudyStore((s) => s.user);
   const setToast = useStudyStore((s) => s.setToast);
@@ -143,14 +143,14 @@ export default function ConceptDetail({ id }) {
 
   if (!concept) return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost" onClick={() => navigate("concepts")}>← Back</button>
-      <p>Not found.</p>
+      <Breadcrumbs section="concepts" />
+      <p className="sp-empty">Not found. <a href="#/concepts">Back to Concepts</a></p>
     </section>
   );
 
   return (
     <section className="sp-section">
-      <button className="sp-btn sp-btn-ghost sp-back" onClick={() => navigate("concepts")}>← Back to Concepts</button>
+      <Breadcrumbs section="concepts" current={concept.n} />
 
       <div className="sp-concept-detail">
         <h2>{concept.n}</h2>

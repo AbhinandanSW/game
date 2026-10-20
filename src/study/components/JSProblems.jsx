@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import useStudyStore from "../store/useStudyStore";
 import { JS_PROBLEMS } from "../data/jsProblems";
 import { setProgress } from "../../firebase";
+import PageHeader from "./PageHeader";
 
 export default function JSProblems() {
   const [cat, setCat] = useState("all");
@@ -28,10 +29,17 @@ export default function JSProblems() {
 
   return (
     <section className="sp-section">
-      <div className="sp-section-head">
-        <h2><span className="num">07</span>JavaScript &amp; Prototype Problems</h2>
-        <p className="sp-section-desc">Polyfills, closures, async, utilities, prototype mechanics. Click to open the IDE.</p>
-      </div>
+      <PageHeader
+        eyebrow="07 · JavaScript"
+        title="JavaScript & Prototype Problems"
+        description="Polyfills, closures, async, utilities, prototype mechanics. Click to open the IDE."
+        actions={
+          <div className="sp-head-stat">
+            <strong>{list.length}</strong>
+            <span>problems in view</span>
+          </div>
+        }
+      />
 
       <div className="sp-filters">
         <div className="sp-filter-group">

@@ -1,4 +1,10 @@
 import { create } from "zustand";
+import { parseHash, routeFor } from "../router";
+import { applyTheme, persistTheme, readStoredTheme } from "../theme";
+
+const initialTheme = readStoredTheme();
+
+if (typeof document !== "undefined") applyTheme(initialTheme);
 
 const useStudyStore = create((set, get) => ({
   // Auth
@@ -25,12 +31,37 @@ const useStudyStore = create((set, get) => ({
   entries: [],
   setEntries: (entries) => set({ entries }),
 
-  // Navigation
-  route: { section: "overview", itemId: null },
+  // Navigation — hash routes make every page shareable and back/forward friendly.
+  route:
+    typeof window !== "undefined"
+      ? parseHash(window.location.hash)
+      : routeFor("overview"),
+  setRoute: (route) => set({ route }),
   navigate: (section, itemId = null) => {
-    set({ route: { section, itemId } });
-    // Scroll to top on navigation
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const next = routeFor(section, itemId);
+    set({ route: next });
+    if (typeof window !== "undefined") {
+      const target = `#${next.path}`;
+      if (window.location.hash !== target) {
+        window.location.hash = target; // triggers the hashchange sync in StudyApp
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  },
+
+  // Theme
+  theme: initialTheme,
+  setTheme: (theme) => {
+    const next = theme === "light" ? "light" : "dark";
+    applyTheme(next);
+    persistTheme(next);
+    set({ theme: next });
+  },
+  toggleTheme: () => {
+    const next = get().theme === "dark" ? "light" : "dark";
+    applyTheme(next);
+    persistTheme(next);
+    set({ theme: next });
   },
 
   // Content overrides from Firestore (keyed by kind → id → item)
