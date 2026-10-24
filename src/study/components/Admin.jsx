@@ -71,6 +71,15 @@ export default function Admin() {
     }
   };
 
+  const handleApproveEntry = async (entry) => {
+    try {
+      await approveUser(entry.email, user.email);
+      setToast(`Approved ${entry.email}`);
+    } catch (e) {
+      setToast("Error: " + e.message);
+    }
+  };
+
   const [seedError, setSeedError] = useState(null);
   const handleSeedContent = async () => {
     if (!window.confirm("Seed all hardcoded content to Firestore? This uploads everything. Existing items with same IDs will be overwritten.")) return;
@@ -181,7 +190,7 @@ export default function Admin() {
       <div className="sp-admin-block">
         <div className="sp-admin-block-head">
           <h3>Access Requests ({sortedRequests.length})</h3>
-          <p>People who tried to sign in but aren't on the allowlist yet.</p>
+          <p>People who signed in with Google and asked for access. Or invite someone directly below.</p>
         </div>
         {sortedRequests.length === 0 ? (
           <div className="sp-empty">No pending requests.</div>
@@ -190,11 +199,17 @@ export default function Admin() {
             {sortedRequests.map((req) => (
               <div key={req.id} className="sp-admin-row">
                 <div className="sp-admin-user">
-                  {req.photo ? <img src={req.photo} alt="" className="sp-lb-avatar" />
+                  {req.photo ? <img src={req.photo} alt="" className="sp-lb-avatar" referrerPolicy="no-referrer" />
                     : <div className="sp-lb-avatar-ph">{req.name?.[0]?.toUpperCase() || "?"}</div>}
                   <div>
                     <div className="sp-admin-name">{req.name || "Unknown"}</div>
                     <div className="sp-admin-email">{req.email}</div>
+                    {req.note && <div className="sp-admin-note">“{req.note}”</div>}
+                    {req.requestedAt?.seconds && (
+                      <div className="sp-admin-when">
+                        Requested {new Date(req.requestedAt.seconds * 1000).toLocaleString()}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="sp-admin-actions">
@@ -289,10 +304,15 @@ export default function Admin() {
                   <div className="sp-lb-avatar-ph">{entry.email?.[0]?.toUpperCase()}</div>
                   <div>
                     <div className="sp-admin-name">{entry.email}</div>
-                    <div className="sp-admin-email">Added by {entry.addedBy || "admin"}</div>
+                    <div className="sp-admin-email">
+                      {entry.approved === false ? "Awaiting approval" : `Added by ${entry.addedBy || "admin"}`}
+                    </div>
                   </div>
                 </div>
                 <div className="sp-admin-actions">
+                  {entry.approved === false && (
+                    <button className="sp-btn sp-btn-primary" onClick={() => handleApproveEntry(entry)}>Approve</button>
+                  )}
                   <button className="sp-btn sp-btn-danger" onClick={() => handleRevoke(entry)}>Revoke</button>
                 </div>
               </div>

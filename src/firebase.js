@@ -186,15 +186,37 @@ export function subscribeAccessRequests(callback) {
 // Log a request to join (so admin sees who wants access).
 // Uses setDoc without merge — clean create-or-replace semantics.
 // Throws on failure so caller can distinguish success/failure.
-export async function requestAccess(user) {
+export async function requestAccess(user, note = "") {
   const id = user.email.toLowerCase();
   await setDoc(doc(db, "accessRequests", id), {
     email: user.email,
     name: user.displayName || "",
     photo: user.photoURL || "",
     uid: user.uid,
+    note: String(note || "").trim().slice(0, 280),
     requestedAt: serverTimestamp(),
   });
+}
+
+// Fetch a single access request (used to decide whether a signed-in but
+// unapproved visitor should see "Request access" or "Waiting for approval").
+// Returns null when there is no request, and { error } when the read failed, so
+// callers never confuse "declined" with "couldn't check".
+export async function getAccessRequest(email) {
+  if (!email) return null;
+  try {
+    const snap = await getDoc(doc(db, "accessRequests", email.toLowerCase()));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  } catch (e) {
+    console.warn("getAccessRequest failed:", e);
+    return { error: e?.message || String(e) };
+  }
+}
+
+export async function withdrawAccessRequest(email) {
+  if (!email) return;
+  const id = email.toLowerCase();
+  await deleteDoc(doc(db, "accessRequests", id));
 }
 
 // ─── User Profile ──────────────────────────────────────────

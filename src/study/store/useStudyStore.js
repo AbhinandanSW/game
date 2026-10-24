@@ -10,9 +10,13 @@ const useStudyStore = create((set, get) => ({
   // Auth
   user: null,
   authLoading: true,
-  authStatus: "idle", // idle | pending_approval | denied | error
+  authStatus: "idle", // idle | request_access | pending_approval | request_denied | error
   authError: "",
+  // Signed in with Google but not on the allowlist yet. Kept separate from `user`
+  // so unapproved accounts never get access to progress/content subscriptions.
+  accessUser: null,
   setUser: (user) => set({ user, authLoading: false }),
+  setAccessUser: (accessUser) => set({ accessUser }),
   setAuthStatus: (authStatus, authError = "") => set({ authStatus, authError }),
 
   // Progress (map problemId → { done, code: {lang: code}, notes })

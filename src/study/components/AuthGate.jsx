@@ -1,6 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import useStudyStore from "../store/useStudyStore";
-import { signInWithGoogle, configStatus } from "../../firebase";
+import {
+  signInWithGoogle,
+  signOut,
+  configStatus,
+  checkAllowlist,
+  getAccessRequest,
+  requestAccess,
+  upsertUserProfile,
+} from "../../firebase";
 import { ALL_DSA } from "../data/dsa";
 import { JS_PROBLEMS } from "../data/jsProblems";
 import { SYSTEM_DESIGN } from "../data/systemDesign";
@@ -35,12 +43,30 @@ const PILLARS = [
   },
 ];
 
+function Avatar({ user }) {
+  if (user?.photoURL) {
+    return <img className="sp-account-avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />;
+  }
+  return (
+    <div className="sp-account-avatar sp-account-avatar-ph" aria-hidden="true">
+      {(user?.displayName || user?.email || "?")[0].toUpperCase()}
+    </div>
+  );
+}
+
 export default function AuthGate({ next = null }) {
   const [loading, setLoading] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [note, setNote] = useState("");
   const [localErr, setLocalErr] = useState("");
+
+  const accessUser = useStudyStore((s) => s.accessUser);
   const authStatus = useStudyStore((s) => s.authStatus);
   const authError = useStudyStore((s) => s.authError);
   const setAuthStatus = useStudyStore((s) => s.setAuthStatus);
+  const setAccessUser = useStudyStore((s) => s.setAccessUser);
+  const setUser = useStudyStore((s) => s.setUser);
 
   const nextSection = next ? getSection(String(next).replace(/^\//, "").split("/")[0]) : null;
 
@@ -62,13 +88,112 @@ export default function AuthGate({ next = null }) {
       setLoading(false);
       return;
     }
-    // The rest — allowlist check, access request logging, sign-out if denied —
-    // is handled centrally in StudyApp's subscribeAuth handler.
+    // StudyApp's subscribeAuth handler decides between "request access",
+    // "pending approval", and letting the visitor in.
     setLoading(false);
   };
 
-  const showPending = authStatus === "pending_approval";
-  const showDenied = authStatus === "denied";
+  const promote = async (u) => {
+    try { await upsertUserProfile(u); } catch {}
+    setAccessUser(null);
+    setUser(u);
+    setAuthStatus("idle");
+  };
+
+  const handleRequestAccess = async () => {
+    if (!accessUser) return;
+    setRequesting(true);
+    setLocalErr("");
+    try {
+      await requestAccess(accessUser, note);
+      setNote("");
+      setAuthStatus("pending_approval");
+    } catch (e) {
+      setAuthStatus("error", e?.message || String(e));
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  const handleCheckAgain = async () => {
+    if (!accessUser) return;
+    setChecking(true);
+    setLocalErr("");
+    const res = await checkAllowlist(accessUser.email);
+    if (res.allowed) {
+      await promote(accessUser);
+      setChecking(false);
+      return;
+    }
+    if (res.reason === "error") {
+      setAuthStatus("error", res.message || "Allowlist check failed");
+      setChecking(false);
+      return;
+    }
+    if (res.reason === "pending") {
+      setAuthStatus("pending_approval");
+      setChecking(false);
+      return;
+    }
+    const existing = await getAccessRequest(accessUser.email);
+    if (existing?.error) {
+      setAuthStatus("error", existing.error);
+      setChecking(false);
+      return;
+    }
+    setAuthStatus(existing ? "pending_approval" : "request_denied");
+    setChecking(false);
+  };
+
+  const handleSwitchAccount = async () => {
+    try { await signOut(); } catch {}
+    setAccessUser(null);
+    setAuthStatus("idle");
+    setNote("");
+    setLocalErr("");
+  };
+
+  // While waiting, re-check quietly so approval lands without a manual refresh.
+  useEffect(() => {
+    if (!accessUser || authStatus !== "pending_approval") return undefined;
+
+    let stopped = false;
+    const tick = async () => {
+      const res = await checkAllowlist(accessUser.email);
+      if (stopped) return;
+
+      if (res.allowed) {
+        try { await upsertUserProfile(accessUser); } catch {}
+        if (stopped) return;
+        setAccessUser(null);
+        setUser(accessUser);
+        setAuthStatus("idle");
+        return;
+      }
+
+      if (res.reason === "not_listed") {
+        const existing = await getAccessRequest(accessUser.email);
+        if (stopped || existing?.error) return;
+        if (!existing) setAuthStatus("request_denied");
+      }
+    };
+
+    const id = setInterval(tick, 15000);
+    const onFocus = () => tick();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [accessUser, authStatus, setAccessUser, setUser, setAuthStatus]);
+
+  const showRequest = !!accessUser && authStatus === "request_access";
+  const showPending = !!accessUser && authStatus === "pending_approval";
+  const showDeclined = !!accessUser && authStatus === "request_denied";
+  const showError = authStatus === "error";
+  const showChecking = !!accessUser && authStatus === "idle";
+  const showSignIn = !showRequest && !showPending && !showDeclined && !showError && !showChecking;
 
   return (
     <div className="sp-login">
@@ -132,14 +257,14 @@ export default function AuthGate({ next = null }) {
 
         <section className="sp-login-panel">
           <div className="sp-login-card">
-            {!showPending && !showDenied && (
+            {showSignIn && (
               <>
                 <h2 className="sp-login-card-title">
                   {nextSection ? `Sign in to open ${nextSection.label}` : "Sign in to save your progress"}
                 </h2>
                 <p className="sp-login-card-sub">
-                  Access is invite-only — your Google email has to be on the allowlist.
-                  Your solutions and answers stay private; the leaderboard only shows totals.
+                  Access is invite-only. Sign in with Google, then request access — an admin
+                  approves each account. Your solutions stay private; the leaderboard only shows totals.
                 </p>
 
                 <button className="sp-btn-google" onClick={handleSignIn} disabled={loading}>
@@ -156,7 +281,7 @@ export default function AuthGate({ next = null }) {
 
                 {next && (
                   <p className="sp-login-next">
-                    <span aria-hidden="true">→</span> After signing in you'll land on
+                    <span aria-hidden="true">→</span> After approval you'll land on
                     <code>{next}</code>
                   </p>
                 )}
@@ -169,24 +294,116 @@ export default function AuthGate({ next = null }) {
               </>
             )}
 
+            {showChecking && (
+              <>
+                <div className="sp-login-state-icon" style={{ color: "var(--ink-faint)" }} aria-hidden="true">⧗</div>
+                <h2 className="sp-login-card-title">Checking access…</h2>
+                <p className="sp-login-card-sub">
+                  One moment while we check whether <strong>{accessUser?.email}</strong> is approved.
+                </p>
+              </>
+            )}
+
+            {showRequest && (
+              <>
+                <h2 className="sp-login-card-title">Request access</h2>
+                <p className="sp-login-card-sub">
+                  This workspace is invite-only and your Google account isn't on the allowlist yet.
+                  Send a request and an admin will review it.
+                </p>
+
+                <div className="sp-account">
+                  <Avatar user={accessUser} />
+                  <div className="sp-account-meta">
+                    <strong>{accessUser?.displayName || "Signed in"}</strong>
+                    <span>{accessUser?.email}</span>
+                  </div>
+                </div>
+
+                <label className="sp-field-label" htmlFor="sp-request-note">
+                  Why do you need access? <span>optional</span>
+                </label>
+                <textarea
+                  id="sp-request-note"
+                  className="sp-textarea"
+                  rows={3}
+                  maxLength={280}
+                  placeholder="e.g. Preparing for a frontend interview — referred by ..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  disabled={requesting}
+                />
+                <div className="sp-field-count">{note.length}/280</div>
+
+                <button className="sp-btn sp-btn-primary sp-btn-block" onClick={handleRequestAccess} disabled={requesting}>
+                  {requesting ? "Sending request..." : "Request access"}
+                </button>
+
+                <button className="sp-login-link" onClick={handleSwitchAccount} type="button">
+                  Use a different account
+                </button>
+
+                {localErr && <p className="sp-auth-err">{localErr}</p>}
+              </>
+            )}
+
             {showPending && (
               <>
                 <div className="sp-login-state-icon" style={{ color: "var(--accent-2)" }} aria-hidden="true">⧗</div>
                 <h2 className="sp-login-card-title">Access <em>pending</em></h2>
                 <p className="sp-login-card-sub">
-                  Your request has been logged. An admin will review and approve your account —
-                  try signing in again in a few minutes.
+                  Request sent for <strong>{accessUser?.email}</strong>. An admin will review it —
+                  this page checks automatically, so you can leave it open.
                 </p>
-                <button className="sp-btn sp-btn-ghost" onClick={() => setAuthStatus("idle")}>Back</button>
+
+                <div className="sp-account">
+                  <Avatar user={accessUser} />
+                  <div className="sp-account-meta">
+                    <strong>{accessUser?.displayName || "Signed in"}</strong>
+                    <span>{accessUser?.email}</span>
+                  </div>
+                </div>
+
+                <button className="sp-btn sp-btn-ghost sp-btn-block" onClick={handleCheckAgain} disabled={checking}>
+                  {checking ? "Checking..." : "Check again"}
+                </button>
+
+                <p className="sp-login-auto">
+                  <span className="sp-login-dot" aria-hidden="true" /> Auto-checking every 15 seconds
+                </p>
+
+                <button className="sp-login-link" onClick={handleSwitchAccount} type="button">
+                  Use a different account
+                </button>
               </>
             )}
 
-            {showDenied && (
+            {showDeclined && (
               <>
                 <div className="sp-login-state-icon" style={{ color: "var(--hard)" }} aria-hidden="true">✕</div>
-                <h2 className="sp-login-card-title">Access <em>denied</em></h2>
+                <h2 className="sp-login-card-title">Request <em>declined</em></h2>
                 <p className="sp-login-card-sub">
-                  Could not log your request. Firestore rules may be blocking the write.
+                  No pending request for <strong>{accessUser?.email}</strong>. An admin may have
+                  declined it — you can ask again if you think that was a mistake.
+                </p>
+
+                <button className="sp-btn sp-btn-primary sp-btn-block" onClick={() => setAuthStatus("request_access")}>
+                  Request access again
+                </button>
+
+                <button className="sp-login-link" onClick={handleSwitchAccount} type="button">
+                  Use a different account
+                </button>
+              </>
+            )}
+
+            {showError && (
+              <>
+                <div className="sp-login-state-icon" style={{ color: "var(--hard)" }} aria-hidden="true">!</div>
+                <h2 className="sp-login-card-title">Couldn't complete that</h2>
+                <p className="sp-login-card-sub">
+                  We couldn't verify your access or save the request. This is usually a Firestore
+                  rules or network issue.
                   {authError && (
                     <>
                       <br />
@@ -194,7 +411,20 @@ export default function AuthGate({ next = null }) {
                     </>
                   )}
                 </p>
-                <button className="sp-btn sp-btn-ghost" onClick={() => setAuthStatus("idle")}>Back</button>
+
+                <button className="sp-btn sp-btn-primary sp-btn-block" onClick={handleCheckAgain} disabled={checking || !accessUser}>
+                  {checking ? "Checking..." : "Try again"}
+                </button>
+
+                {accessUser && (
+                  <button className="sp-login-link" onClick={() => setAuthStatus("request_access")} type="button">
+                    Back to request form
+                  </button>
+                )}
+
+                <button className="sp-login-link" onClick={handleSwitchAccount} type="button">
+                  Sign out
+                </button>
               </>
             )}
           </div>

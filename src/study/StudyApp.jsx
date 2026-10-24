@@ -6,10 +6,9 @@ import {
   subscribeAnswers,
   subscribeEntries,
   checkAllowlist,
+  getAccessRequest,
   upsertUserProfile,
   updateProgressSummary,
-  signOut,
-  requestAccess,
 } from "../firebase";
 import { fetchContent } from "./services/contentService";
 import { ALL_DSA } from "./data/dsa";
@@ -112,35 +111,49 @@ export default function StudyApp() {
   // Handles: fresh sign-in, stale session (admin revoked), sign-out
   useEffect(() => {
     const setAuthStatus = useStudyStore.getState().setAuthStatus;
+    const setAccessUser = useStudyStore.getState().setAccessUser;
     const unsub = subscribeAuth(async (u) => {
       if (!u) {
         setUser(null);
+        setAccessUser(null);
         setAuthStatus("idle");
         return;
       }
 
-      // Allowlist check
       const check = await checkAllowlist(u.email);
 
-      if (!check.allowed) {
-        // Log the access request BEFORE signing out, while the token is still valid
-        try {
-          await requestAccess(u);
-          setAuthStatus("pending_approval");
-        } catch (e) {
-          console.warn("requestAccess failed:", e);
-          setAuthStatus("denied", e?.message || "");
-        }
-        // Now sign out (user can't use the app)
-        try { await signOut(); } catch {}
-        setUser(null);
+      if (check.allowed) {
+        // Approved — upsert profile + set user.
+        try { await upsertUserProfile(u); } catch {}
+        setAccessUser(null);
+        setUser(u);
+        setAuthStatus("idle");
         return;
       }
 
-      // Allowed — upsert profile + set user
-      try { await upsertUserProfile(u); } catch {}
-      setUser(u);
-      setAuthStatus("idle");
+      // Not approved. Keep the Firebase session alive (so the visitor can file an
+      // access request) but withhold app access by leaving `user` empty.
+      setUser(null);
+      setAccessUser(u);
+
+      if (check.reason === "error") {
+        setAuthStatus("error", check.message || "Allowlist check failed");
+        return;
+      }
+
+      // Someone added them with approved:false, or an admin hasn't looked yet.
+      if (check.reason === "pending") {
+        setAuthStatus("pending_approval");
+        return;
+      }
+
+      // First visit: has this account already asked for access?
+      const existing = await getAccessRequest(u.email);
+      if (existing?.error) {
+        setAuthStatus("error", existing.error);
+        return;
+      }
+      setAuthStatus(existing ? "pending_approval" : "request_access");
     });
     return () => unsub && unsub();
   }, [setUser]);

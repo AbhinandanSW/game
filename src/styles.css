@@ -1967,12 +1967,87 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 }
 .sp-login-state-icon { font-size: 40px; margin-bottom: 8px; font-family: var(--serif); }
 .sp-login-fineprint { text-align: center; font-size: 11.5px; color: var(--ink-faint); margin-top: 16px; line-height: 1.5; }
+
+/* Account chip + request form on the auth card */
+.sp-account {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; margin-bottom: 18px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.sp-account-avatar {
+  width: 36px; height: 36px; flex: 0 0 auto;
+  border-radius: 50%; object-fit: cover;
+}
+.sp-account-avatar-ph {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--on-accent);
+  font-family: var(--serif); font-size: 16px; font-weight: 700;
+}
+.sp-account-meta { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sp-account-meta strong { font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em; }
+.sp-account-meta span {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sp-field-label {
+  display: block; margin-bottom: 6px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.sp-field-label span { text-transform: none; letter-spacing: 0; opacity: 0.7; }
+.sp-textarea {
+  width: 100%; resize: vertical; min-height: 74px;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--bg); border: 1px solid var(--border); color: var(--ink);
+  font-family: var(--sans); font-size: 13px; line-height: 1.5;
+}
+.sp-textarea:focus { outline: none; border-color: var(--accent); }
+.sp-textarea:disabled { opacity: 0.6; }
+.sp-field-count {
+  margin: 5px 0 16px; text-align: right;
+  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+}
+.sp-btn-block { display: flex; width: 100%; justify-content: center; padding: 11px 18px; }
+.sp-login-link {
+  display: block; width: 100%; margin-top: 14px;
+  background: none; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 12px; color: var(--ink-faint);
+  text-align: center; text-decoration: underline; text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.sp-login-link:hover { color: var(--accent); }
+.sp-login-auto {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  margin-top: 12px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint);
+}
+.sp-login-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-2);
+  box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.16);
+  animation: sp-pulse 1.8s ease-in-out infinite;
+}
+@keyframes sp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Admin access requests */
+.sp-admin-note {
+  margin-top: 4px; font-size: 12px; line-height: 1.5;
+  color: var(--ink-dim); font-style: italic;
+}
+.sp-admin-when {
+  margin-top: 3px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.04em; color: var(--ink-faint);
+}
 :root[data-theme="light"] .sp-btn-google { border: 1px solid var(--border); }
 
 /* ─── Responsive clean-up ────────────────────────────────── */
 @media (max-width: 1020px) {
   .sp-login-grid { grid-template-columns: minmax(0, 1fr); gap: 34px; padding: 8px 24px 56px; }
-  .sp-login-panel { justify-self: stretch; max-width: 540px; }
+  .sp-login-panel { justify-self: stretch; max-width: 540px; order: -1; }
   .sp-login-points { display: none; }
   .sp-login-stats { margin-top: 24px; }
 }
